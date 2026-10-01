@@ -304,6 +304,8 @@ fn get_specs() -> Result<serde_json::Value, String> {
                 "name": name,
                 "tipe": tipe,
                 "total_gb": (d.total_space() / 1_073_741_824) as u64,
+                "used_gb": ((d.total_space() - d.available_space()) / 1_073_741_824) as u64,
+                "free_gb": (d.available_space() / 1_073_741_824) as u64,
             })
         })
         // Buang drive virtual/wsl/recovery yang berulang
