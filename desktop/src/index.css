@@ -257,6 +257,13 @@ button { font-family: inherit; }
 .spinner { width: 20px; height: 20px; border: 2px solid var(--border); border-top-color: var(--primary); border-radius: 50%; animation: spin 0.8s linear infinite; margin-right: 0.75rem; }
 @keyframes spin { to { transform: rotate(360deg); } }
 
+// ponytail: animasi pet mengikuti CPU — scale via inline style (animationDuration),
+// bukan CSS var, supaya React control langsung tanpa re-render CSS.
+@keyframes petBounce {
+  0%, 100% { transform: translateY(0) rotate(-2deg); }
+  50% { transform: translateY(-7px) rotate(2deg); }
+}
+
 .empty { text-align: center; padding: 2rem; color: var(--muted-fg); font-size: 0.8125rem; }
 
 /* Responsive */
