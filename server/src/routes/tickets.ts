@@ -217,11 +217,12 @@ const ticketRoutes: FastifyPluginAsync = async (fastify) => {
   
   // Guest ticket (device identity, tanpa login)
   fastify.post("/guest", async (request, reply) => {
-    const { description, device_id, device_name, priority } = request.body as {
+    const { description, device_id, device_name, priority, lokasi } = request.body as {
       description: string;
       device_id: string;
       device_name?: string;
       priority?: string;
+      lokasi?: string;
     };
 
     if (!device_id || device_id.length < 4) {
@@ -250,10 +251,10 @@ const ticketRoutes: FastifyPluginAsync = async (fastify) => {
     const title = description.trim().slice(0, 60);
 
     const result = await db.query(
-      `INSERT INTO tickets (id, ticket_number, title, description, idempotency_key, device_id, device_name, priority)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+      `INSERT INTO tickets (id, ticket_number, title, description, idempotency_key, device_id, device_name, priority, lokasi)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
        RETURNING *`,
-      [uuidv4(), ticketNumber, title, description, idempotencyKey, device_id, device_name || null, priority || "normal"]
+      [uuidv4(), ticketNumber, title, description, idempotencyKey, device_id, device_name || null, priority || "normal", (lokasi || "").trim() || null]
     );
 
     await db.query(
