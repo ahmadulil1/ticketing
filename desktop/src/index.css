@@ -51,9 +51,9 @@
 
 :focus-visible { outline: 2px solid var(--primary); outline-offset: 2px; }
 
-html, body { background: transparent !important; }
+html, body { background: transparent !important; margin: 0; padding: 0; }
 body { font-family: var(--font); color: var(--foreground); overflow: hidden; font-size: 14px; line-height: 1.5; -webkit-font-smoothing: antialiased; }
-#root { height: 100vh; width: 100vw; background: transparent; }
+#root { height: 100vh; width: 100vw; background: transparent !important; }
 button { font-family: inherit; }
 
 /* Login */
@@ -223,7 +223,7 @@ button { font-family: inherit; }
 .btn-primary:disabled { opacity: 0.5; cursor: not-allowed; }
 
 /* Pet Overlay */
-.pet-overlay { position: fixed; inset: 0; cursor: grab; z-index: 9999; user-select: none; display: flex; align-items: center; justify-content: center; gap: 4px; padding: 0; background: none; box-shadow: none; border: none; width: fit-content; height: fit-content; margin: auto; }
+.pet-overlay { position: fixed; inset: 0; cursor: grab; z-index: 9999; user-select: none; display: flex; align-items: center; justify-content: center; gap: 4px; padding: 0; background: transparent !important; box-shadow: none !important; border: none !important; width: fit-content; height: fit-content; margin: auto; }
 .pet-overlay.dragging { cursor: grabbing; }
 .pet-image { width: 72px; height: 72px; object-fit: contain; filter: drop-shadow(0 4px 12px rgba(0,0,0,0.4)); transition: transform 0.2s ease; flex-shrink: 0; }
 .pet-overlay:hover .pet-image { transform: scale(1.05); }
