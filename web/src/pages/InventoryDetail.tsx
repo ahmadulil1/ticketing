@@ -86,6 +86,13 @@ export default function InventoryDetail() {
               <span>{d.name ?? "-"}</span>
               <span className="badge-active">{(d.tipe || "disk").toUpperCase()}</span>
               <span>{d.total_gb != null ? `${d.total_gb} GB` : "-"}</span>
+              <span className="muted">
+                {d.used_gb != null && d.total_gb
+                  ? `${d.used_gb} GB terpakai · ${d.free_gb ?? d.total_gb - d.used_gb} GB bebas`
+                  : d.total_gb != null
+                  ? "used/free belum tersedia (update app desktop)"
+                  : "-"}
+              </span>
             </div>
           ))}
         </div>

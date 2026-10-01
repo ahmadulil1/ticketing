@@ -4,7 +4,7 @@ import api from "../lib/api";
 import { useNavigate } from "react-router-dom";
 import { Package, Plus, Search } from "lucide-react";
 
-export interface DiskSpec { name?: string; tipe?: string; total_gb?: number; }
+export interface DiskSpec { name?: string; tipe?: string; total_gb?: number; used_gb?: number; free_gb?: number; }
 
 export function healthBadge(disks: DiskSpec[] | null) {
   if (!disks || disks.length === 0) return { text: "Belum ada data", cls: "badge-done" };
