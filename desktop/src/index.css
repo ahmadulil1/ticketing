@@ -51,8 +51,9 @@
 
 :focus-visible { outline: 2px solid var(--primary); outline-offset: 2px; }
 
-body { font-family: var(--font); background: transparent; color: var(--foreground); overflow: hidden; font-size: 14px; line-height: 1.5; -webkit-font-smoothing: antialiased; }
-#root { height: 100vh; width: 100vw; }
+html, body { background: transparent !important; }
+body { font-family: var(--font); color: var(--foreground); overflow: hidden; font-size: 14px; line-height: 1.5; -webkit-font-smoothing: antialiased; }
+#root { height: 100vh; width: 100vw; background: transparent; }
 button { font-family: inherit; }
 
 /* Login */
