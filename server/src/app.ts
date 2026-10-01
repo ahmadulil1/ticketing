@@ -14,6 +14,7 @@ import messageRoutes from "./routes/messages.js";
 import userRoutes from "./routes/users.js";
 import deviceRoutes from "./routes/devices.js";
 import inventoryRoutes from "./routes/inventory.js";
+import groupRoutes from "./routes/groups.js";
 
 export async function buildApp() {
   const fastify = Fastify({
@@ -53,6 +54,7 @@ export async function buildApp() {
   await fastify.register(userRoutes, { prefix: "/api/users" });
   await fastify.register(deviceRoutes, { prefix: "/api/devices" });
   await fastify.register(inventoryRoutes, { prefix: "/api/inventories" });
+  await fastify.register(groupRoutes, { prefix: "/api/device-groups" });
 
   // WebSocket for real-time chat
   fastify.register(async function (fastify) {

@@ -28,6 +28,7 @@ export interface Ticket {
   unread_count?: number;
   device_id?: string;
   device_name?: string;
+  lokasi?: string;
   reopened_at?: string;
 }
 

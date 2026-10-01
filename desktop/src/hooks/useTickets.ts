@@ -27,6 +27,7 @@ export function useTickets(params?: { search?: string; status?: string }) {
       priority?: string;
       deviceId?: string;
       deviceName?: string;
+      lokasi?: string;
     }) => {
       if (isAgent()) {
         const res = await api.post("/tickets", {
@@ -42,6 +43,7 @@ export function useTickets(params?: { search?: string; status?: string }) {
         priority: ticket.priority || "normal",
         device_id: ticket.deviceId,
         device_name: ticket.deviceName,
+        lokasi: ticket.lokasi,
       }, { headers: { "Idempotency-Key": crypto.randomUUID() } });
       return res.data as Ticket;
     },

@@ -176,6 +176,7 @@ export default function TicketDetail() {
         <div className="meta">
           <span>Pelapor: {ticket.requester_full_name || ticket.requester_name || "Karyawan"}</span>
           {ticket.device_name && <span>Device: {ticket.device_name}</span>}
+          {ticket.lokasi && <span>Lokasi: {ticket.lokasi}</span>}
           <span>Dibuat: {dayjs(ticket.created_at).format("DD MMM YYYY HH:mm")}</span>
         </div>
         {(user.role === "agent" || user.role === "admin") && (

@@ -51,8 +51,9 @@
 
 :focus-visible { outline: 2px solid var(--primary); outline-offset: 2px; }
 
-body { font-family: var(--font); background: transparent; color: var(--foreground); overflow: hidden; font-size: 14px; line-height: 1.5; -webkit-font-smoothing: antialiased; }
-#root { height: 100vh; width: 100vw; }
+html, body { background: transparent !important; margin: 0; padding: 0; }
+body { font-family: var(--font); color: var(--foreground); overflow: hidden; font-size: 14px; line-height: 1.5; -webkit-font-smoothing: antialiased; }
+#root { height: 100vh; width: 100vw; background: transparent !important; }
 button { font-family: inherit; }
 
 /* Login */
@@ -198,6 +199,8 @@ button { font-family: inherit; }
 .form-group label { font-size: 0.75rem; font-weight: 600; color: var(--muted-fg); text-transform: uppercase; letter-spacing: 0.02em; }
 .form-group input, .form-group textarea { padding: 0.625rem 0.75rem; border: 1px solid var(--border); border-radius: var(--radius); font-family: inherit; font-size: 0.875rem; outline: none; background: var(--surface); color: var(--foreground); }
 .form-group input:focus, .form-group textarea:focus { border-color: var(--primary); box-shadow: 0 0 0 3px hsl(126 55% 39% / 0.15); }
+.form-group select, .lokasi-select { padding: 0.625rem 0.75rem; border: 1px solid var(--border); border-radius: var(--radius); font-family: inherit; font-size: 0.875rem; outline: none; background: var(--surface); color: var(--foreground); width: 100%; }
+.form-group select:focus { border-color: var(--primary); box-shadow: 0 0 0 3px hsl(126 55% 39% / 0.15); }
 .form-group textarea { resize: vertical; min-height: 110px; }
 .file-drop { display: flex; align-items: center; gap: 0.5rem; padding: 0.75rem; border: 1.5px dashed var(--border-strong); border-radius: var(--radius); cursor: pointer; color: var(--muted-fg); font-size: 0.8125rem; background: var(--surface); transition: border-color 0.15s, color 0.15s; }
 .file-drop:hover { border-color: var(--primary); color: var(--primary); }
@@ -222,14 +225,14 @@ button { font-family: inherit; }
 .btn-primary:disabled { opacity: 0.5; cursor: not-allowed; }
 
 /* Pet Overlay */
-.pet-overlay { position: fixed; inset: 0; cursor: grab; z-index: 9999; user-select: none; display: flex; align-items: center; justify-content: center; gap: 0; padding: 8px; }
+.pet-overlay { position: fixed; inset: 0; cursor: grab; z-index: 9999; user-select: none; display: flex; align-items: center; justify-content: center; gap: 4px; padding: 0; background: transparent !important; box-shadow: none !important; border: none !important; width: fit-content; height: fit-content; margin: auto; }
 .pet-overlay.dragging { cursor: grabbing; }
-.pet-image { width: 94px; height: 94px; object-fit: contain; margin-right: -14px; filter: drop-shadow(0 4px 12px hsl(220 31% 11% / 0.2)); transition: transform 0.2s ease; flex-shrink: 0; }
+.pet-image { width: 56px; height: 56px; object-fit: contain; filter: drop-shadow(0 4px 12px rgba(0,0,0,0.4)); transition: transform 0.2s ease; flex-shrink: 0; }
 .pet-overlay:hover .pet-image { transform: scale(1.05); }
-.pet-clock { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px; flex: 1; min-width: 0; background: none; border: none; border-radius: 0; padding: 0; box-shadow: none; }
-.pet-time { font-size: 1.125rem; font-weight: 700; color: #fff; line-height: 1.2; font-variant-numeric: tabular-nums; letter-spacing: 0.01em; text-shadow: 0 2px 6px hsl(220 31% 11% / 0.5); }
-.pet-date { font-size: 1.125rem; font-weight: 700; color: #fff; line-height: 1.2; text-shadow: 0 1px 4px hsl(220 31% 11% / 0.5); white-space: nowrap; }
-.pet-stats { font-size: 0.75rem; font-weight: 600; color: #fff; line-height: 1.4; text-shadow: 0 1px 4px hsl(220 31% 11% / 0.55); white-space: nowrap; display: flex; gap: 6px; flex-wrap: wrap; justify-content: center; font-variant-numeric: tabular-nums; }
+.pet-clock { display: flex; flex-direction: column; align-items: flex-start; justify-content: center; gap: 0; min-width: 0; background: rgba(0, 0, 0, 0.45); backdrop-filter: blur(4px); border-radius: 12px; padding: 5px 10px; margin-left: 0; box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2); border: 1px solid rgba(255, 255, 255, 0.1); }
+.pet-time { font-size: 1.5rem; font-weight: 900; color: #fff; line-height: 1; font-variant-numeric: tabular-nums; letter-spacing: -0.02em; text-shadow: 0 2px 10px rgba(0,0,0,0.8), 0 1px 3px rgba(0,0,0,0.8); margin-bottom: 4px; }
+.pet-date { font-size: 0.8rem; font-weight: 700; color: rgba(255, 255, 255, 0.95); line-height: 1; text-shadow: 0 1px 4px rgba(0,0,0,0.8); white-space: nowrap; margin-bottom: 4px; }
+.pet-stats { font-size: 0.7rem; font-weight: 600; color: rgba(255, 255, 255, 0.9); line-height: 1.2; text-shadow: 0 1px 4px rgba(0,0,0,0.8); white-space: nowrap; display: flex; gap: 6px; flex-wrap: wrap; font-variant-numeric: tabular-nums; }
 .pet-badge { position: absolute; top: -4px; right: -4px; background: var(--destructive); color: white; border-radius: 999px; min-width: 20px; height: 20px; display: flex; align-items: center; justify-content: center; font-size: 0.625rem; font-weight: 700; padding: 0 0.375rem; box-shadow: 0 2px 6px hsl(0 72% 51% / 0.4); }
 .pet-context-menu { position: absolute; bottom: 100%; right: 0; margin-bottom: 8px; background: var(--surface); border: 1px solid var(--border); border-radius: 10px; box-shadow: var(--shadow-md); padding: 0.375rem 0; min-width: 180px; animation: slideUp 0.15s ease; }
 @keyframes slideUp { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
@@ -256,6 +259,13 @@ button { font-family: inherit; }
 .loading { display: flex; align-items: center; justify-content: center; height: 100%; color: var(--muted-fg); font-size: 0.8125rem; }
 .spinner { width: 20px; height: 20px; border: 2px solid var(--border); border-top-color: var(--primary); border-radius: 50%; animation: spin 0.8s linear infinite; margin-right: 0.75rem; }
 @keyframes spin { to { transform: rotate(360deg); } }
+
+// ponytail: animasi pet mengikuti CPU — scale via inline style (animationDuration),
+// bukan CSS var, supaya React control langsung tanpa re-render CSS.
+@keyframes petBounce {
+  0%, 100% { transform: translateY(0) rotate(-2deg); }
+  50% { transform: translateY(-7px) rotate(2deg); }
+}
 
 .empty { text-align: center; padding: 2rem; color: var(--muted-fg); font-size: 0.8125rem; }
 

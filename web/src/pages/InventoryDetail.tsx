@@ -30,6 +30,21 @@ export default function InventoryDetail() {
     },
   });
 
+  const { data: groups } = useQuery({
+    queryKey: ["device-groups"],
+    queryFn: async () => {
+      const res = await api.get("/device-groups");
+      return res.data as Array<{ id: string; nama: string }>;
+    },
+  });
+
+  const updateLokasi = useMutation({
+    mutationFn: async (lokasi: string) => {
+      await api.patch(`/inventories/${id}`, { lokasi });
+    },
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["inventory", id] }),
+  });
+
   const addEvent = useMutation({
     mutationFn: async (body: any) => (await api.post(`/inventories/${id}/events`, body)).data,
     onSuccess: () => {
@@ -72,7 +87,24 @@ export default function InventoryDetail() {
 
       <div className="stat-cards">
         <SpecCard label="Hostname" value={inv.hostname} />
-        <SpecCard label="Lokasi" value={inv.lokasi} />
+        <div className="stat-card" style={{ display: "flex", flexDirection: "column", gap: "0.25rem" }}>
+          <select
+            value={inv.lokasi || ""}
+            disabled={updateLokasi.isPending}
+            onChange={e => updateLokasi.mutate(e.target.value)}
+            style={{ fontSize: "0.8125rem" }}
+            title="Ubah lokasi aset"
+          >
+            <option value="">- Tanpa lokasi -</option>
+            {(groups || []).map((g: any) => (
+              <option key={g.id} value={g.nama}>{g.nama}</option>
+            ))}
+            {inv.lokasi && !(groups || []).some((g: any) => g.nama === inv.lokasi) && (
+              <option value={inv.lokasi}>{inv.lokasi} (group sudah dihapus)</option>
+            )}
+          </select>
+          <span className="label">Lokasi {updateLokasi.isPending ? "(menyimpan…)" : "(klik untuk ubah)"}</span>
+        </div>
         <SpecCard label="Device" value={inv.device_id ? inv.device_id.slice(0, 8) + "…" : "tidak di-link"} />
         <SpecCard label="Spec terakhir direport" value={inv.reported_at ? new Date(inv.reported_at).toLocaleDateString("id-ID") : "-"} />
       </div>
@@ -86,6 +118,13 @@ export default function InventoryDetail() {
               <span>{d.name ?? "-"}</span>
               <span className="badge-active">{(d.tipe || "disk").toUpperCase()}</span>
               <span>{d.total_gb != null ? `${d.total_gb} GB` : "-"}</span>
+              <span className="muted">
+                {d.used_gb != null && d.total_gb
+                  ? `${d.used_gb} GB terpakai · ${d.free_gb ?? d.total_gb - d.used_gb} GB bebas`
+                  : d.total_gb != null
+                  ? "used/free belum tersedia (update app desktop)"
+                  : "-"}
+              </span>
             </div>
           ))}
         </div>

@@ -8,7 +8,7 @@ pub struct PetPosition {
     pub y: f64,
 }
 
-const PET_SIZE: f64 = 80.0;
+const PET_SIZE: f64 = 60.0;
 
 pub fn position_pet_window(window: &WebviewWindow) -> Result<(), Box<dyn std::error::Error>> {
     let app_handle = window.app_handle();
