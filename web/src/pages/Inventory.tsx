@@ -2,7 +2,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 import api from "../lib/api";
 import { useNavigate } from "react-router-dom";
-import { Package, Plus, Search, Settings, X } from "lucide-react";
+import { Package, Plus, Search, Settings, Trash2, X } from "lucide-react";
 
 export interface DiskSpec { name?: string; tipe?: string; total_gb?: number; used_gb?: number; free_gb?: number; }
 
@@ -123,45 +123,66 @@ export default function Inventory() {
       )}
 
       {showGroups && (
-        <div className="panel agent-form">
-          <div className="agent-form-row">
-            <input
-              placeholder="Nama group/lokasi baru (mis. Laboratorium 2-A)"
-              value={newGroup}
-              onChange={e => setNewGroup(e.target.value)}
-              onKeyDown={e => {
-                if (e.key === "Enter" && newGroup.trim()) createGroup.mutate(newGroup.trim());
-              }}
-            />
-            <button
-              className="btn btn-primary"
-              disabled={!newGroup.trim() || createGroup.isPending}
-              onClick={() => createGroup.mutate(newGroup.trim())}
-            >
-              Tambah Group
-            </button>
-          </div>
-          {createGroup.isError && (
-            <span className="badge-off">Nama group sudah dipakai</span>
-          )}
-          <div className="inv-list" style={{ marginTop: "0.5rem" }}>
-            {(groups || []).length === 0 && <div className="empty">Belum ada group.</div>}
-            {(groups || []).map((g: any) => (
-              <div key={g.id} className="ticket-row" style={{ fontSize: "0.8125rem" }}>
-                <span className="t-title"><Package size={13} style={{ verticalAlign: "-2px" }} /> {g.nama}</span>
-                <button
-                  className="icon-btn"
-                  title="Hapus group"
-                  onClick={() => {
-                    if (confirm(`Hapus group "${g.nama}"? Aset/tiket yang memakai nama ini tidak ikut terhapus.`)) {
-                      deleteGroup.mutate(g.id);
-                    }
+        <div className="modal-backdrop" onClick={() => setShowGroups(false)}>
+          <div className="modal" onClick={e => e.stopPropagation()}>
+            <div className="modal-head">
+              <h2><Package size={15} /> Kelola Group / Lokasi</h2>
+              <button className="icon-btn" title="Tutup" onClick={() => setShowGroups(false)}>
+                <X size={15} />
+              </button>
+            </div>
+            <div className="modal-body">
+              <div className="agent-form-row">
+                <input
+                  placeholder="Nama group/lokasi (mis. Laboratorium 2-A)"
+                  value={newGroup}
+                  onChange={e => setNewGroup(e.target.value)}
+                  onKeyDown={e => {
+                    if (e.key === "Enter" && newGroup.trim()) createGroup.mutate(newGroup.trim());
                   }}
+                  autoFocus
+                />
+                <button
+                  className="btn btn-primary"
+                  disabled={!newGroup.trim() || createGroup.isPending}
+                  onClick={() => createGroup.mutate(newGroup.trim())}
                 >
-                  <X size={14} />
+                  <Plus size={15} /> Tambah
                 </button>
               </div>
-            ))}
+              {createGroup.isError && (
+                <span className="badge-off">Nama group sudah dipakai</span>
+              )}
+              <div style={{ display: "flex", flexDirection: "column", gap: "0.375rem" }}>
+                {(groups || []).length === 0 && (
+                  <div className="group-empty">Belum ada group. Tambahkan lewat form di atas.</div>
+                )}
+                {(groups || []).map((g: any) => {
+                  const dipakai = (items || []).filter((it: any) => it.lokasi === g.nama).length;
+                  return (
+                    <div key={g.id} className="group-row">
+                      <span className="grow">
+                        <Package size={13} style={{ flexShrink: 0, color: "var(--text-2)" }} />
+                        <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{g.nama}</span>
+                        {dipakai > 0 && <span className="badge badge-active" style={{ fontSize: "0.6875rem" }}>{dipakai} aset</span>}
+                      </span>
+                      <button
+                        className="icon-btn"
+                        style={{ width: 30, height: 30, flexShrink: 0 }}
+                        title="Hapus group"
+                        onClick={() => {
+                          if (confirm(`Hapus group "${g.nama}"?${dipakai > 0 ? ` ${dipakai} aset akan kehilangan label lokasinya (data aset tidak terhapus).` : ""}`)) {
+                            deleteGroup.mutate(g.id);
+                          }
+                        }}
+                      >
+                        <Trash2 size={14} />
+                      </button>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
           </div>
         </div>
       )}
