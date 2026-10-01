@@ -8,7 +8,9 @@ export interface DiskSpec { name?: string; tipe?: string; total_gb?: number; use
 
 export function healthBadge(disks: DiskSpec[] | null) {
   if (!disks || disks.length === 0) return { text: "Belum ada data", cls: "badge-done" };
-  return { text: disks.map(d => `${d.tipe || "disk"} ${d.total_gb ?? "?"}GB`).join(" · "), cls: "badge-active" };
+  const total = disks.reduce((s, d) => s + (d.total_gb ?? 0), 0);
+  const label = total >= 1024 ? `${(total / 1024).toFixed(1)} TB` : `${total} GB`;
+  return { text: `${disks.length} disk · ${label}`, cls: "badge-active" };
 }
 
 export default function Inventory() {
@@ -212,16 +214,17 @@ export default function Inventory() {
               if (byLokasi.size === 0) return <div className="empty">Belum ada aset inventaris.</div>;
               return keys.map((lok) => (
                 <div key={lok || "__nolokasi"}>
-                  <h3 className="inv-group-title" style={{ margin: "0.75rem 0 0.35rem", fontSize: "0.9rem" }}>
-                    <Package size={13} style={{ verticalAlign: "-2px" }} /> {lok || "Tanpa lokasi"} ({byLokasi.get(lok)!.length})
+                  <h3 className="inv-group-title">
+                    <Package size={13} className="pkg" /> {lok || "Tanpa lokasi"} <span className="cnt">{byLokasi.get(lok)!.length}</span>
                   </h3>
                   {byLokasi.get(lok)!.map((it: any) => {
                   const h = healthBadge(it.disks);
+                  const cpu = it.cpu_model;
                   return (
                     <button key={it.id} className="ticket-row" onClick={() => navigate(`/inventories/${it.id}`)}>
-                      <span className="t-num"><Package size={14} /> {it.no_inventaris}</span>
-                      <span className="t-title">{it.hostname || it.lokasi || "-"}</span>
-                      <span className="t-status badge-active">{it.cpu_model || "-"}</span>
+                      <span className="t-num"><Package size={14} style={{ flexShrink: 0 }} /> {it.no_inventaris}</span>
+                      <span className="t-title">{it.hostname || (it.device_id ? "Menunggu report device" : "Tanpa device")}</span>
+                      <span className={`t-status ${cpu ? "badge-active" : "badge-done"}`}>{cpu || "CPU n/a"}</span>
                       <span className="t-prio">{h.text}</span>
                       <span className="t-date">
                         {it.device_id ? `${it.ticket_total ?? 0} tiket` : "tanpa device"}
