@@ -32,5 +32,7 @@ export const config = {
   ticket: {
     prefix: "TKT",
     reopenDays: 3,
+    // tiket selesai bisa dibuka kembali sampai jam 17:00 hari yang sama
+    reopenDeadlineHour: 17,
   },
 };
