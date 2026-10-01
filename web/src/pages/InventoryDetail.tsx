@@ -89,10 +89,10 @@ export default function InventoryDetail() {
         <SpecCard label="Hostname" value={inv.hostname} />
         <div className="stat-card" style={{ display: "flex", flexDirection: "column", gap: "0.25rem" }}>
           <select
+            className="lokasi-select"
             value={inv.lokasi || ""}
             disabled={updateLokasi.isPending}
             onChange={e => updateLokasi.mutate(e.target.value)}
-            style={{ fontSize: "0.8125rem" }}
             title="Ubah lokasi aset"
           >
             <option value="">- Tanpa lokasi -</option>
@@ -113,20 +113,33 @@ export default function InventoryDetail() {
         <div className="panel-head"><h2>Disk</h2></div>
         <div className="inv-list">
           {disks.length === 0 && <span className="muted">Belum ada data disk (menunggu report app).</span>}
-          {disks.map((d: any, i: number) => (
-            <div key={i} className="ticket-row" style={{ fontSize: "0.8125rem" }}>
-              <span>{d.name ?? "-"}</span>
-              <span className="badge-active">{(d.tipe || "disk").toUpperCase()}</span>
-              <span>{d.total_gb != null ? `${d.total_gb} GB` : "-"}</span>
-              <span className="muted">
-                {d.used_gb != null && d.total_gb
-                  ? `${d.used_gb} GB terpakai · ${d.free_gb ?? d.total_gb - d.used_gb} GB bebas`
-                  : d.total_gb != null
-                  ? "used/free belum tersedia (update app desktop)"
-                  : "-"}
-              </span>
-            </div>
-          ))}
+          {disks.map((d: any, i: number) => {
+            const total = d.total_gb;
+            const used = d.used_gb;
+            const free = d.free_gb ?? (total != null && used != null ? +(total - used).toFixed(1) : null);
+            const pct = total && used != null ? Math.min(100, Math.round((used / total) * 100)) : null;
+            return (
+              <div key={i} className="disk-row">
+                <div className="disk-row-head">
+                  <span className="disk-name">{d.name ?? "-"}</span>
+                  <span className="badge-active">{(d.tipe || "disk").toUpperCase()}</span>
+                  <span className="disk-size">{total != null ? `${total} GB` : "-"}</span>
+                </div>
+                <div className="disk-bar" title={pct != null ? `${pct}% terpakai` : "data used/free belum ada"}>
+                  {pct != null
+                    ? <div className={`disk-bar-fill${pct > 85 ? " high" : ""}`} style={{ width: `${pct}%` }} />
+                    : <div className="disk-bar-none" />}
+                </div>
+                <span className="disk-usage">
+                  {used != null && total
+                    ? `${used} GB terpakai · ${free} GB bebas (${pct}%)`
+                    : total != null
+                    ? "used/free belum tersedia (update app desktop)"
+                    : "-"}
+                </span>
+              </div>
+            );
+          })}
         </div>
       </div>
 
