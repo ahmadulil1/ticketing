@@ -123,6 +123,10 @@ export default function PetOverlay({ onClick }: Props) {
 
   if (petHidden) return null;
 
+  // CPU naik → pet gerak cepat, CPU turun → lambat. 0%: 1.6s, 100%: 0.3s.
+  const cpu = typeof usage?.cpu === "number" ? usage.cpu : 0;
+  const bounceDur = (1.6 - (cpu / 100) * 1.3).toFixed(2);
+
   return (
     <div
       ref={overlayRef}
@@ -137,6 +141,7 @@ export default function PetOverlay({ onClick }: Props) {
         alt="Pet"
         className="pet-image"
         draggable={false}
+        style={{ animation: `petBounce ${bounceDur}s ease-in-out infinite` }}
       />
       <div className="pet-clock">
         <span className="pet-time">

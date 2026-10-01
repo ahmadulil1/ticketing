@@ -137,6 +137,7 @@ fn get_device_name(_app: tauri::AppHandle) -> Result<String, String> {
 }
 
 // GPU dari registry (tanpa crate `wmi`): baca DriverDesc subkey class display.
+#[cfg(windows)]
 fn get_gpu_model() -> Option<String> {
     use windows::Win32::System::Registry::{HKEY_LOCAL_MACHINE, RegGetValueW, RRF_RT_REG_SZ};
     use windows::core::{PCWSTR, w};
@@ -169,6 +170,17 @@ fn get_gpu_model() -> Option<String> {
         }
     }
     seen.first().cloned()
+}
+
+#[cfg(not(windows))]
+fn get_gpu_model() -> Option<String> {
+    // ponytail: non-Windows ambil nama GPU dari sysinfo components.
+    // Windows tetap pakai registry (DriverDesc) di branch #[cfg(windows)].
+    use sysinfo::Components;
+    Components::new_with_refreshed_list()
+        .iter()
+        .map(|c| c.label().to_string())
+        .find(|label| !label.is_empty())
 }
 
 fn sys_state() -> &'static Mutex<sysinfo_probe::State> {
@@ -231,7 +243,12 @@ fn get_usage() -> Result<serde_json::Value, String> {
             let name = name.trim_end_matches(['\\', '/']).to_string();
             let total = d.total_space();
             let free = d.available_space();
-            if total == 0 || !name.starts_with('C') { return None; }
+            if total == 0 { return None; }
+            // Windows: partisi C: saja. Linux: root / dan mount point user.
+            #[cfg(windows)]
+            if !name.starts_with('C') { return None; }
+            #[cfg(not(windows))]
+            if name.is_empty() { return None; }
             Some(serde_json::json!({
                 "name": name,
                 "pct": ((total - free) as f64 / total as f64 * 100.0) as u32,
@@ -290,7 +307,7 @@ fn get_specs() -> Result<serde_json::Value, String> {
             })
         })
         // Buang drive virtual/wsl/recovery yang berulang
-        .filter(|v| v["total_gb"].as_u64().unwrap_or(0) >= 0 && !v["name"].as_str().unwrap_or("").starts_with("\\\\?\\"))
+        .filter(|v| !v["name"].as_str().unwrap_or("").starts_with("\\\\?\\"))
         .collect();
 
     let ram_gb = sys.total_memory() / (1024 * 1024 * 1024);
