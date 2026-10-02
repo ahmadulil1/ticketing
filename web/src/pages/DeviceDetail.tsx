@@ -52,6 +52,7 @@ export default function DeviceDetail() {
         <div className="stat-cards">
           <div className="stat-card"><span className="count" style={{ fontSize: "0.8125rem", wordBreak: "break-word" }}>{device.spec.cpu_model || "-"}</span><span className="label">CPU</span></div>
           <div className="stat-card"><span className="count" style={{ fontSize: "0.8125rem" }}>{device.spec.ram_gb ? `${device.spec.ram_gb} GB` : "-"}</span><span className="label">RAM</span></div>
+          <div className="stat-card"><span className="count" style={{ fontSize: "0.8125rem", wordBreak: "break-word" }}>{device.spec.gpu_model || "-"}</span><span className="label">GPU</span></div>
           <div className="stat-card"><span className="count" style={{ fontSize: "0.8125rem" }}>{device.spec.os_name || "-"}</span><span className="label">OS</span></div>
           <div className="stat-card"><span className="count" style={{ fontSize: "0.8125rem" }}>
             {(device.spec.disks || []).map((d: any) => `${(d.tipe || "disk").toUpperCase()} ${d.total_gb ?? "?"}GB`).join(" · ") || "-"}

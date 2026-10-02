@@ -231,7 +231,7 @@ body {
 .btn-link.danger { color: var(--danger); display: inline-flex; align-items: center; gap: 0.25rem; }
 
 /* ===== Stat cards ===== */
-.stat-cards { display: grid; grid-template-columns: repeat(4, 1fr); gap: 0.875rem; margin-bottom: 1.25rem; }
+.stat-cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: 0.875rem; margin-bottom: 1.25rem; }
 .stat-card {
   background: var(--surface); border-radius: 10px; padding: 1rem 1.125rem;
   box-shadow: var(--shadow-sm); border-left: 4px solid var(--border-strong);
