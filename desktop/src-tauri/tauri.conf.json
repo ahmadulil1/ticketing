@@ -44,7 +44,7 @@
       }
     ],
     "security": {
-      "csp": "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; connect-src 'self' ipc://localhost http://ipc.localhost http://192.168.0.100:3000 ws://192.168.0.100:3000; img-src 'self' data:"
+      "csp": "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; connect-src 'self' ipc://localhost http://ipc.localhost https://ticketing.marisoncloud.com wss://ticketing.marisoncloud.com; img-src 'self' data:"
     }
   },
   "bundle": {
