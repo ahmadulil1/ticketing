@@ -170,7 +170,7 @@ export default function PetOverlay({ onClick }: Props) {
         </span>
         {usage && (
           <span className="pet-stats">
-            CPU {usage.cpu} RAM {usage.ram} DSK {usage.disks?.[0]?.pct ?? 0} · ↓{fmt(usage.net_down)} ↑{fmt(usage.net_up)}
+            CPU {usage.cpu}% · RAM {usage.ram}% · SSD {usage.disks?.[0]?.pct ?? 0}% · ↓{fmt(usage.net_down)} ↑{fmt(usage.net_up)}
           </span>
         )}
       </div>
