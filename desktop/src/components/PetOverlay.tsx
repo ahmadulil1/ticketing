@@ -2,20 +2,38 @@ import { useState, useEffect, useRef } from "react";
 import { EyeOff, ExternalLink, X } from "lucide-react";
 import { useUnread } from "../hooks/useUnread";
 import { useRealtime } from "../hooks/useRealtime";
+import petGif from "../assets/pet.gif";
+
+const isTauri = () =>
+  typeof window !== "undefined" &&
+  (typeof (window as any).__TAURI_INTERNALS__ !== "undefined" ||
+   typeof (window as any).__TAURI__ !== "undefined");
 
 // Tauri invoke wrapper — graceful fallback di browser
 async function tauriInvoke(cmd: string, args?: object): Promise<any> {
-  if (typeof window.__TAURI__ !== "undefined") {
-    const { invoke } = await import("@tauri-apps/api/core");
-    return invoke(cmd, args as Record<string, unknown>);
+  if (isTauri()) {
+    try {
+      const { invoke } = await import("@tauri-apps/api/core");
+      return await invoke(cmd, args as Record<string, unknown>);
+    } catch (e) {
+      console.error(`[invoke ${cmd}] error:`, e);
+    }
   }
 }
 
-// Buka mini window langsung via invoke (lebih reliable daripada event cross-window)
+// Buka mini window langsung via invoke & event
 async function tauriShowMini() {
-  if (typeof window.__TAURI__ !== "undefined") {
-    const { invoke } = await import("@tauri-apps/api/core");
-    return invoke("show_mini_window");
+  if (isTauri()) {
+    try {
+      const { invoke } = await import("@tauri-apps/api/core");
+      await invoke("show_mini_window");
+    } catch (e) {
+      console.error("[pet] show_mini_window gagal:", e);
+    }
+    try {
+      const { emit } = await import("@tauri-apps/api/event");
+      await emit("show-mini");
+    } catch {}
   }
 }
 
@@ -49,44 +67,47 @@ export default function PetOverlay({ onClick }: Props) {
   }, []);
   // ponytail: net format — kecil ekstra, cuma tampilan
   const fmt = (bs: number) => bs >= 1_000_000 ? `${(bs / 1_000_000).toFixed(1)}Mb` : bs >= 1000 ? `${(bs / 1000).toFixed(0)}kb` : `${bs}b`;
-  const dragStart = useRef({ x: 0, y: 0 });
   const overlayRef = useRef<HTMLDivElement>(null);
-  const moved = useRef(false);
-  const dragging = useRef(false);
+  const downInfo = useRef({ x: 0, y: 0, time: 0, isDown: false });
+  const hasDragged = useRef(false);
 
   const handleMouseDown = (e: React.MouseEvent) => {
     if (e.button !== 0) return;
-    moved.current = false;
-    dragging.current = true;
-    dragStart.current = { x: e.screenX, y: e.screenY };
-    // Tauri native drag — window pet 80x80, drag DOM tak efektif
-    if (typeof window.__TAURI__ !== "undefined") {
-      import("@tauri-apps/api/window").then(({ getCurrentWindow }) => {
-        getCurrentWindow().startDragging().catch((err) => console.error("[pet] startDragging gagal:", err));
-      });
+    downInfo.current = { x: e.screenX, y: e.screenY, time: Date.now(), isDown: true };
+    hasDragged.current = false;
+  };
+
+  const handleMouseMove = (e: React.MouseEvent) => {
+    if (!downInfo.current.isDown || hasDragged.current) return;
+    if (e.buttons !== 1) {
+      downInfo.current.isDown = false;
+      return;
+    }
+    const dx = Math.abs(e.screenX - downInfo.current.x);
+    const dy = Math.abs(e.screenY - downInfo.current.y);
+    if (dx > 5 || dy > 5) {
+      hasDragged.current = true;
+      if (isTauri()) {
+        import("@tauri-apps/api/window").then(({ getCurrentWindow }) => {
+          getCurrentWindow().startDragging().catch((err) => console.error("[pet] startDragging gagal:", err));
+        });
+      }
     }
   };
 
-  useEffect(() => {
-    const onMove = (e: MouseEvent) => {
-      if (dragging.current) {
-        const dx = Math.abs(e.screenX - dragStart.current.x);
-        const dy = Math.abs(e.screenY - dragStart.current.y);
-        if (dx + dy > 4) moved.current = true;
-      }
-    };
-    const onUp = () => {
-      if (dragging.current) {
-        dragging.current = false;
-      }
-    };
-    window.addEventListener("mousemove", onMove);
-    window.addEventListener("mouseup", onUp);
-    return () => {
-      window.removeEventListener("mousemove", onMove);
-      window.removeEventListener("mouseup", onUp);
-    };
-  }, []);
+  const handleMouseUp = (e: React.MouseEvent) => {
+    if (e.button !== 0) return;
+    const wasDown = downInfo.current.isDown;
+    const didDrag = hasDragged.current;
+    downInfo.current.isDown = false;
+
+    // Jika mouse dilepas tanpa drag dalam waktu wajar -> anggap klik
+    if (wasDown && !didDrag && Date.now() - downInfo.current.time < 500) {
+      onClick();
+      tauriShowMini();
+      setShowMenu(false);
+    }
+  };
 
   useEffect(() => {
     const onOutside = (e: MouseEvent) => {
@@ -99,7 +120,7 @@ export default function PetOverlay({ onClick }: Props) {
   }, []);
 
   const handleClick = (e: React.MouseEvent) => {
-    if (!moved.current) {
+    if (!hasDragged.current) {
       onClick();
       tauriShowMini();
       setShowMenu(false);
@@ -123,25 +144,22 @@ export default function PetOverlay({ onClick }: Props) {
 
   if (petHidden) return null;
 
-  // CPU naik → pet gerak cepat, CPU turun → lambat. 0%: 1.6s, 100%: 0.3s.
-  const cpu = typeof usage?.cpu === "number" ? usage.cpu : 0;
-  const bounceDur = (1.6 - (cpu / 100) * 1.3).toFixed(2);
-
   return (
     <div
       ref={overlayRef}
       className="pet-overlay"
       onMouseDown={handleMouseDown}
+      onMouseMove={handleMouseMove}
+      onMouseUp={handleMouseUp}
       onClick={handleClick}
       onContextMenu={handleContextMenu}
       title="Klik untuk buka, drag untuk pindah, klik kanan untuk menu"
     >
       <img
-        src="/pet.gif"
+        src={petGif}
         alt="Pet"
         className="pet-image"
         draggable={false}
-        style={{ animation: `petBounce ${bounceDur}s ease-in-out infinite` }}
       />
       <div className="pet-clock">
         <span className="pet-time">
@@ -159,7 +177,7 @@ export default function PetOverlay({ onClick }: Props) {
       {unreadCount > 0 && <div className="pet-badge">{unreadCount}</div>}
       {showMenu && (
         <div className="pet-context-menu">
-          <button onClick={() => { onClick(); setShowMenu(false); }}>
+          <button onClick={() => { onClick(); tauriShowMini(); setShowMenu(false); }}>
             <ExternalLink size={16} /> Buka Ticketing
           </button>
           <button onClick={handleHide}>

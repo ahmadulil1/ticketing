@@ -4,8 +4,6 @@
   "version": "1.0.2",
   "identifier": "com.ticketing.desktop",
   "build": {
-    "beforeDevCommand": "npm run dev",
-    "devUrl": "http://localhost:1420",
     "beforeBuildCommand": "npm run build",
     "frontendDist": "../dist"
   },
@@ -30,20 +28,20 @@
         "label": "pet-overlay",
         "title": "Pet",
         "url": "index.html#pet-overlay",
-        "width": 220,
-        "height": 84,
-        "minWidth": 180,
-        "minHeight": 70,
-        "maxWidth": 320,
-        "maxHeight": 120,
+        "width": 480,
+        "height": 150,
+        "minWidth": 280,
+        "minHeight": 120,
+        "maxWidth": 500,
+        "maxHeight": 190,
         "resizable": false,
         "decorations": false,
         "transparent": true,
+        "shadow": false,
         "alwaysOnTop": true,
         "visible": true,
         "skipTaskbar": true,
-        "focus": false,
-        "shadow": false
+        "focus": false
       }
     ],
     "security": {
@@ -53,9 +51,6 @@
   "bundle": {
     "active": true,
     "targets": "all",
-    "icon": [
-      "icons/icon.ico",
-      "icons/icon.png"
-    ]
+    "icon": ["icons/icon.ico", "icons/icon.png"]
   }
 }

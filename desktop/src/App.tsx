@@ -9,7 +9,7 @@ async function getCurrentWindowLabel(): Promise<string | null> {
   // Sinkron dari internals Tauri (tersedia di kedua window)
   const syncLabel = window.__TAURI_INTERNALS__?.metadata?.currentWindow?.label;
   if (syncLabel) return syncLabel;
-  if (typeof window.__TAURI__ === "undefined") return "mini";
+  if (typeof window === "undefined" || !("__TAURI_INTERNALS__" in window || "__TAURI__" in window)) return "mini";
   try {
     const { getCurrentWindow } = await import("@tauri-apps/api/window");
     return getCurrentWindow().label;
