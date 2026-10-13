@@ -1,8 +1,12 @@
 import path from "path";
 
+if (process.env.NODE_ENV === "production" && !process.env.JWT_SECRET) {
+  throw new Error("JWT_SECRET wajib diatur pada production");
+}
+
 export const config = {
   port: process.env.PORT || 3000,
-  host: process.env.HOST || "0.0.0.0",
+  host: process.env.HOST || (process.env.NODE_ENV === "production" ? "127.0.0.1" : "0.0.0.0"),
   
   database: {
     host: process.env.DB_HOST || "localhost",
@@ -18,21 +22,20 @@ export const config = {
   },
   
   jwt: {
-    secret: process.env.JWT_SECRET || "ticketing-secret-key-change-in-production",
+    secret: process.env.JWT_SECRET || "dev-only-secret",
     expiresIn: process.env.JWT_EXPIRES_IN || "7d",
   },
   
   storage: {
     path: process.env.STORAGE_PATH || "/data/uploads",
-    maxFileSize: 20 * 1024 * 1024, // 20MB
-    maxFiles: 5,
-    allowedTypes: ["image/png", "image/jpeg", "image/jpg", "application/pdf", "text/plain", "application/vnd.openxmlformats-officedocument.wordprocessingml.document", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", "application/zip"],
+    maxFileSize: 5 * 1024 * 1024, // 5MB
+    maxFiles: 10,
+    allowedTypes: ["image/png", "image/jpeg", "image/jpg", "image/webp", "image/gif", "image/bmp"],
   },
   
   ticket: {
     prefix: "TKT",
     reopenDays: 3,
-    // tiket selesai bisa dibuka kembali sampai jam 17:00 hari yang sama
-    reopenDeadlineHour: 17,
+    reopenDeadlineHour: 17, // tiket selesai bisa dibuka kembali sampai jam 17:00 hari yang sama
   },
 };
