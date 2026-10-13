@@ -58,6 +58,23 @@ export default function PetOverlay({ onClick }: Props) {
 
   // Monitoring CPU/RAM/disk/internet tiap 2 detik (invoke Rust get_usage)
   const [usage, setUsage] = useState<any>(null);
+  // Tema adaptif: terang/gelap sesuai warna layar di sekitar pet
+  const [bgLight, setBgLight] = useState<boolean>(() =>
+    typeof window !== "undefined" && window.matchMedia?.("(prefers-color-scheme: light)").matches
+  );
+
+  useEffect(() => {
+    let alive = true;
+    const sample = async () => {
+      try {
+        const lum = await tauriInvoke("sample_bg_luminance");
+        if (alive && typeof lum === "number") setBgLight(lum > 128);
+      } catch {}
+    };
+    sample();
+    const id = setInterval(sample, 3000);
+    return () => { alive = false; clearInterval(id); };
+  }, []);
   useEffect(() => {
     let alive = true;
     const poll = () => tauriInvoke("get_usage").then(d => { if (alive && d) setUsage(d); }).catch(() => {});
@@ -147,7 +164,7 @@ export default function PetOverlay({ onClick }: Props) {
   return (
     <div
       ref={overlayRef}
-      className="pet-overlay"
+      className={"pet-overlay" + (bgLight ? " pet-light" : " pet-dark")}
       onMouseDown={handleMouseDown}
       onMouseMove={handleMouseMove}
       onMouseUp={handleMouseUp}

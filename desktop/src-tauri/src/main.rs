@@ -4,6 +4,7 @@ mod pet_overlay;
 mod system_tray;
 mod notifications;
 mod auto_start;
+mod bg_sample;
 
 use std::sync::{Mutex, OnceLock};
 use tauri::{Listener, Manager};
@@ -28,6 +29,8 @@ pub fn run() {
         ))
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_notification::init())
+        .plugin(tauri_plugin_updater::Builder::new().build())
+        .plugin(tauri_plugin_process::init())
         .setup(|app| {
             // Window pet-overlay & mini didefinisikan di tauri.conf.json
             let pet_window = app.get_webview_window("pet-overlay")
@@ -89,6 +92,7 @@ pub fn run() {
             get_usage,
             notifications::show_notification,
             notifications::request_permission,
+            bg_sample::sample_bg_luminance,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
@@ -273,25 +277,33 @@ fn get_specs() -> Result<serde_json::Value, String> {
     );
 
     let disks = Disks::new_with_refreshed_list();
+    // SMART health Windows: map drive letter -> PhysicalDisk via Get-Partition
+    let smart = get_disk_smart();
     let disks_json: Vec<serde_json::Value> = disks
         .list()
         .iter()
         .map(|d| {
-            let name = d.mount_point().to_string_lossy().to_string();
-            let name = name.trim_end_matches(['\\', '/']).to_string();
+            let mp = d.mount_point().to_string_lossy().to_string();
+            let name = mp.trim_end_matches(['\\', '/']).to_string();
+            let letter = name.trim_start_matches("\\\\?\\").to_string();
             let tipe = match d.kind() {
                 sysinfo::DiskKind::SSD => "ssd",
                 sysinfo::DiskKind::HDD => "hdd",
                 _ => "lainnya",
             };
+            let total = d.total_space();
+            let used = total.saturating_sub(d.available_space());
             serde_json::json!({
                 "name": name,
                 "tipe": tipe,
-                "total_gb": (d.total_space() / 1_073_741_824) as u64,
+                "total_gb": (total / 1_073_741_824) as u64,
+                "used_gb": (used / 1_073_741_824) as u64,
+                "free_gb": (d.available_space() / 1_073_741_824) as u64,
+                "smart": smart.get(&letter).cloned().unwrap_or_default(),
             })
         })
         // Buang drive virtual/wsl/recovery yang berulang
-        .filter(|v| v["total_gb"].as_u64().unwrap_or(0) >= 0 && !v["name"].as_str().unwrap_or("").starts_with("\\\\?\\"))
+        .filter(|v| v["total_gb"].as_u64().unwrap_or(0) > 0 && !v["name"].as_str().unwrap_or("").starts_with("\\\\?\\"))
         .collect();
 
     let ram_gb = sys.total_memory() / (1024 * 1024 * 1024);
@@ -304,4 +316,76 @@ fn get_specs() -> Result<serde_json::Value, String> {
         "os_name": os_name,
         "disks": disks_json,
     }))
+}
+
+/// SMART health per drive letter (Windows via wmic; Get-PhysicalDisk butuh admin).
+/// Return map "C:" -> {health, operational}. Linux: kosong (frontend pakai usage %).
+#[cfg(windows)]
+fn get_disk_smart() -> std::collections::HashMap<String, serde_json::Value> {
+    use std::process::Command;
+    let mut map = std::collections::HashMap::new();
+
+    // Status per disk index: "0" -> "OK"
+    let mut disk_status: std::collections::HashMap<String, String> = std::collections::HashMap::new();
+    let out = Command::new("wmic")
+        .args(["path", "Win32_DiskDrive", "get", "Index,Status", "/format:list"])
+        .output();
+    if let Ok(out) = out {
+        let txt = String::from_utf8_lossy(&out.stdout);
+        let mut cur_idx: Option<String> = None;
+        for line in txt.lines() {
+            let line = line.trim();
+            if let Some(v) = line.strip_prefix("Index=") {
+                cur_idx = Some(v.trim().to_string());
+            } else if let Some(v) = line.strip_prefix("Status=") {
+                if let Some(idx) = cur_idx.take() {
+                    disk_status.insert(idx, v.trim().to_string());
+                }
+            }
+        }
+    }
+
+    // Map drive letter -> disk index lewat LogicalDiskToPartition
+    let out = Command::new("wmic")
+        .args(["path", "Win32_LogicalDiskToPartition", "get", "Antecedent,Dependent", "/format:list"])
+        .output();
+    let Ok(out) = out else { return map; };
+    let txt = String::from_utf8_lossy(&out.stdout);
+    let mut cur_ant: Option<String> = None;
+    for line in txt.lines() {
+        let line = line.trim();
+        if let Some(v) = line.strip_prefix("Antecedent=") {
+            cur_ant = Some(v.to_string());
+        } else if let Some(v) = line.strip_prefix("Dependent=") {
+            if let Some(ant) = cur_ant.take() {
+                // Antecedent: ...Win32_DiskPartition.DeviceID="Disk #0, Partition #1"
+                // Dependent:  ...Win32_LogicalDisk.DeviceID="C:"
+                let disk_idx = match ant.split("Disk #").nth(1) {
+                    Some(s) => s.split(',').next().unwrap_or("").trim().to_string(),
+                    None => continue,
+                };
+                let letter = match v.split("DeviceID=\"").nth(1) {
+                    Some(s) => s.split('"').next().unwrap_or("").trim().to_string(),
+                    None => continue,
+                };
+                if let Some(status) = disk_status.get(&disk_idx) {
+                    let health = if status.eq_ignore_ascii_case("OK") {
+                        "Healthy"
+                    } else {
+                        status.as_str()
+                    };
+                    map.insert(
+                        letter,
+                        serde_json::json!({ "health": health, "operational": status }),
+                    );
+                }
+            }
+        }
+    }
+    map
+}
+
+#[cfg(not(windows))]
+fn get_disk_smart() -> std::collections::HashMap<String, serde_json::Value> {
+    std::collections::HashMap::new()
 }

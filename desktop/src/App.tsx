@@ -4,6 +4,7 @@ import Login from "./components/Login";
 import MiniWindow from "./components/MiniWindow";
 import PetOverlay from "./components/PetOverlay";
 import { useTheme } from "./hooks/useTheme";
+import { useAutoUpdate } from "./hooks/useAutoUpdate";
 
 async function getCurrentWindowLabel(): Promise<string | null> {
   // Sinkron dari internals Tauri (tersedia di kedua window)
@@ -30,6 +31,7 @@ function App() {
   const [label, setLabel] = useState<string | null>(null);
   // Tema diterapkan di semua window (token <html dataset.theme>)
   useTheme();
+  useAutoUpdate();
 
   useEffect(() => {
     // deteksi cepat dari hash (sinkron, mencegah flash PetOverlay di mini window)

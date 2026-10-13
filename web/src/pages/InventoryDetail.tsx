@@ -3,6 +3,7 @@ import { useState } from "react";
 import api from "../lib/api";
 import { useParams, useNavigate, Link } from "react-router-dom";
 import { ArrowLeft, Trash2, Plus } from "lucide-react";
+import DiskBars from "../components/DiskBars";
 
 const JENIS_LABEL: Record<string, string> = { ganti: "Ganti", upgrade: "Upgrade", perbaikan: "Perbaikan" };
 
@@ -28,21 +29,6 @@ export default function InventoryDetail() {
       const res = await api.get(`/inventories/${id}`);
       return res.data;
     },
-  });
-
-  const { data: groups } = useQuery({
-    queryKey: ["device-groups"],
-    queryFn: async () => {
-      const res = await api.get("/device-groups");
-      return res.data as Array<{ id: string; nama: string }>;
-    },
-  });
-
-  const updateLokasi = useMutation({
-    mutationFn: async (lokasi: string) => {
-      await api.patch(`/inventories/${id}`, { lokasi });
-    },
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["inventory", id] }),
   });
 
   const addEvent = useMutation({
@@ -87,60 +73,14 @@ export default function InventoryDetail() {
 
       <div className="stat-cards">
         <SpecCard label="Hostname" value={inv.hostname} />
-        <div className="stat-card" style={{ display: "flex", flexDirection: "column", gap: "0.25rem" }}>
-          <select
-            className="lokasi-select"
-            value={inv.lokasi || ""}
-            disabled={updateLokasi.isPending}
-            onChange={e => updateLokasi.mutate(e.target.value)}
-            title="Ubah lokasi aset"
-          >
-            <option value="">- Tanpa lokasi -</option>
-            {(groups || []).map((g: any) => (
-              <option key={g.id} value={g.nama}>{g.nama}</option>
-            ))}
-            {inv.lokasi && !(groups || []).some((g: any) => g.nama === inv.lokasi) && (
-              <option value={inv.lokasi}>{inv.lokasi} (group sudah dihapus)</option>
-            )}
-          </select>
-          <span className="label">Lokasi {updateLokasi.isPending ? "(menyimpan…)" : "(klik untuk ubah)"}</span>
-        </div>
+        <SpecCard label="Lokasi" value={inv.lokasi} />
         <SpecCard label="Device" value={inv.device_id ? inv.device_id.slice(0, 8) + "…" : "tidak di-link"} />
         <SpecCard label="Spec terakhir direport" value={inv.reported_at ? new Date(inv.reported_at).toLocaleDateString("id-ID") : "-"} />
       </div>
 
       <div className="panel">
-        <div className="panel-head"><h2>Disk</h2></div>
-        <div className="inv-list">
-          {disks.length === 0 && <span className="muted">Belum ada data disk (menunggu report app).</span>}
-          {disks.map((d: any, i: number) => {
-            const total = d.total_gb;
-            const used = d.used_gb;
-            const free = d.free_gb ?? (total != null && used != null ? +(total - used).toFixed(1) : null);
-            const pct = total && used != null ? Math.min(100, Math.round((used / total) * 100)) : null;
-            return (
-              <div key={i} className="disk-row">
-                <div className="disk-row-head">
-                  <span className="disk-name">{d.name ?? "-"}</span>
-                  <span className="badge-active">{(d.tipe || "disk").toUpperCase()}</span>
-                  <span className="disk-size">{total != null ? `${total} GB` : "-"}</span>
-                </div>
-                <div className="disk-bar" title={pct != null ? `${pct}% terpakai` : "data used/free belum ada"}>
-                  {pct != null
-                    ? <div className={`disk-bar-fill${pct > 85 ? " high" : ""}`} style={{ width: `${pct}%` }} />
-                    : <div className="disk-bar-none" />}
-                </div>
-                <span className="disk-usage">
-                  {used != null && total
-                    ? `${used} GB terpakai · ${free} GB bebas (${pct}%)`
-                    : total != null
-                    ? "used/free belum tersedia (update app desktop)"
-                    : "-"}
-                </span>
-              </div>
-            );
-          })}
-        </div>
+        <div className="panel-head"><h2>Penyimpanan</h2></div>
+        <DiskBars disks={disks} />
       </div>
 
       <div className="panel">

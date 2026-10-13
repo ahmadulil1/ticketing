@@ -233,6 +233,7 @@ body {
 .badge-active { background: color-mix(in srgb, var(--success) 16%, transparent); color: var(--success); padding: 2px 8px; border-radius: 10px; font-weight: 600; }
 .badge-done { background: var(--surface-3); color: var(--text-2); padding: 2px 8px; border-radius: 10px; }
 .badge-off { background: color-mix(in srgb, var(--danger) 14%, transparent); color: var(--danger); padding: 2px 8px; border-radius: 10px; font-weight: 600; }
+.badge-warn { background: color-mix(in srgb, var(--warning, #f59e0b) 16%, transparent); color: var(--warning, #b45309); padding: 2px 8px; border-radius: 10px; font-weight: 600; }
 
 /* ===== Filters ===== */
 .filters { display: flex; flex-wrap: wrap; gap: 0.625rem; margin-bottom: 0.875rem; }
@@ -559,3 +560,14 @@ body {
 .inv-event .icon-btn { padding: 0.25rem; color: var(--text-2); }
 .inv-event .icon-btn:hover { color: var(--danger); }
 .chat-pagination { position: sticky; bottom: 0; background: color-mix(in srgb, var(--surface) 88%, transparent); border-top: 1px solid var(--border); padding: 0.5rem 0.75rem; }
+
+/* ===== Disk bars (storage) ===== */
+.diskbars { display: flex; flex-direction: column; gap: 0.75rem; }
+.diskbar-row { display: flex; flex-direction: column; gap: 0.3rem; }
+.diskbar-label { display: flex; align-items: center; gap: 0.5rem; font-size: 0.8125rem; font-weight: 600; }
+.diskbar-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.diskbar-track { height: 10px; border-radius: 6px; background: var(--surface-3); overflow: hidden; }
+.diskbar-fill { height: 100%; border-radius: 6px; background: var(--primary); transition: width 0.3s ease; }
+.diskbar-fill.warn { background: var(--warning, #f59e0b); }
+.diskbar-fill.crit { background: var(--danger); }
+.diskbar-nums { display: flex; flex-wrap: wrap; gap: 0.25rem 0.75rem; font-size: 0.6875rem; color: var(--text-2); font-variant-numeric: tabular-nums; }
