@@ -93,6 +93,7 @@ pub fn run() {
             notifications::show_notification,
             notifications::request_permission,
             bg_sample::sample_bg_luminance,
+            log_update_error,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
@@ -100,6 +101,23 @@ pub fn run() {
 
 fn main() {
     run();
+}
+
+#[tauri::command]
+fn log_update_error(msg: String) -> Result<(), String> {
+    use std::io::Write;
+    let path = std::env::temp_dir().join("ticketing-update-error.log");
+    let mut f = std::fs::OpenOptions::new()
+        .create(true)
+        .append(true)
+        .open(&path)
+        .map_err(|e| e.to_string())?;
+    let ts = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .map(|d| d.as_secs())
+        .unwrap_or(0);
+    let line = format!("[{ts}] {msg}\n");
+    f.write_all(line.as_bytes()).map_err(|e| e.to_string())
 }
 
 #[tauri::command]
