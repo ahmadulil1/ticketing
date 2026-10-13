@@ -26,7 +26,11 @@ export function useRealtime(ticketId?: string, channels: Channel[] = ["messages"
       ws = new WebSocket(WS_URL + "/ws");
       ws.onopen = () => {
         if (closed) return;
-        ws?.send(JSON.stringify({ type: "subscribe", ticketId }));
+        ws?.send(JSON.stringify({
+          type: "subscribe",
+          ticketId,
+          token: localStorage.getItem("token") || undefined,
+        }));
       };
       ws.onmessage = (ev) => {
         let data: any;
