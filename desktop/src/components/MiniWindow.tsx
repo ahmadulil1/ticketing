@@ -10,22 +10,27 @@ import { useRealtime } from "../hooks/useRealtime";
 import { useDragRegion } from "../hooks/useDragRegion";
 import { useTheme } from "../hooks/useTheme";
 
+const isTauri = () =>
+  typeof window !== "undefined" &&
+  (typeof (window as any).__TAURI_INTERNALS__ !== "undefined" ||
+   typeof (window as any).__TAURI__ !== "undefined");
+
 async function tauriEmit(event: string) {
-  if (typeof window.__TAURI__ !== "undefined") {
+  if (isTauri()) {
     const { emit } = await import("@tauri-apps/api/event");
     return emit(event);
   }
 }
 
 async function minimizeWindow() {
-  if (typeof window.__TAURI__ !== "undefined") {
+  if (isTauri()) {
     const { getCurrentWindow } = await import("@tauri-apps/api/window");
     getCurrentWindow().minimize();
   }
 }
 
 async function hideWindow() {
-  if (typeof window.__TAURI__ !== "undefined") {
+  if (isTauri()) {
     const { getCurrentWindow } = await import("@tauri-apps/api/window");
     getCurrentWindow().hide();
   } else {
@@ -61,7 +66,7 @@ export default function MiniWindow() {
 
   // Always-on-top toggle
   useEffect(() => {
-    if (typeof window.__TAURI__ === "undefined") return;
+    if (!isTauri()) return;
     import("@tauri-apps/api/window").then(({ getCurrentWindow }) => {
       getCurrentWindow().setAlwaysOnTop(pinned);
     });
@@ -79,7 +84,7 @@ export default function MiniWindow() {
     priority?: string;
     deviceId?: string;
     deviceName?: string;
-    lokasi?: string;
+    idempotencyKey?: string;
   }) => {
     const ticket = await createTicket.mutateAsync(data);
     setView("list");

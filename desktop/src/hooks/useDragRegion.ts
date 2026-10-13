@@ -12,7 +12,8 @@ export function useDragRegion() {
     const target = e.target as HTMLElement;
     if (target.closest("button, input, select, textarea, a")) return;
 
-    if (typeof window.__TAURI__ === "undefined") return;
+    if (typeof window === "undefined") return;
+    if (!("__TAURI_INTERNALS__" in window || "__TAURI__" in window)) return;
     import("@tauri-apps/api/window").then(({ getCurrentWindow }) => {
       getCurrentWindow().startDragging().catch((err) => console.error("[drag] gagal:", err));
     });
