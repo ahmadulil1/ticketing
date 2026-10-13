@@ -1,5 +1,6 @@
 import { useEffect } from "react";
 import { useQueryClient } from "@tanstack/react-query";
+import { getDeviceId } from "../services/device";
 
 /**
  * Subscribe ke WS server untuk update real-time.
@@ -27,7 +28,12 @@ export function useRealtime(ticketId?: string, channels: Channel[] = ["messages"
       ws = new WebSocket(WS_URL + "/ws");
       ws.onopen = () => {
         if (closed) return;
-        ws?.send(JSON.stringify({ type: "subscribe", ticketId }));
+        ws?.send(JSON.stringify({
+          type: "subscribe",
+          ticketId,
+          token: localStorage.getItem("token") || undefined,
+          deviceId: getDeviceId(),
+        }));
       };
       ws.onmessage = (ev) => {
         let data: any;

@@ -84,6 +84,7 @@ export default function MiniWindow() {
     priority?: string;
     deviceId?: string;
     deviceName?: string;
+    idempotencyKey?: string;
   }) => {
     const ticket = await createTicket.mutateAsync(data);
     setView("list");

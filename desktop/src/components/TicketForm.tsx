@@ -14,15 +14,13 @@ const PRIORITIES = [
 ];
 
 interface Props {
-  onSubmit: (data: { description: string; priority: string; deviceId: string; deviceName: string; lokasi?: string }) => Promise<{ id: string }>;
+  onSubmit: (data: { description: string; priority: string; deviceId: string; deviceName: string; idempotencyKey: string }) => Promise<{ id: string }>;
   onCancel: () => void;
 }
 
 export default function TicketForm({ onSubmit, onCancel }: Props) {
   const [description, setDescription] = useState("");
   const [priority, setPriority] = useState("normal");
-  const [lokasi, setLokasi] = useState("");
-  const [groups, setGroups] = useState<Array<{ id: string; nama: string }>>([]);
   const [files, setFiles] = useState<File[]>([]);
   const [submitting, setSubmitting] = useState(false);
   const [errors, setErrors] = useState<{ description?: string; files?: string }>({});
@@ -30,13 +28,6 @@ export default function TicketForm({ onSubmit, onCancel }: Props) {
   const inputRef = useRef<HTMLInputElement>(null);
   const idempotencyRef = useRef<string>("");
   const onDrag = useDragRegion();
-
-  // Daftar lokasi/group dari server (GET publik)
-  useEffect(() => {
-    api.get("/device-groups")
-      .then(res => setGroups(res.data || []))
-      .catch(() => {});
-  }, []);
 
   const isImage = (f: File) => ALLOWED_MIME.includes(f.type.toLowerCase()) || /^image\//.test(f.type);
 
@@ -102,7 +93,7 @@ export default function TicketForm({ onSubmit, onCancel }: Props) {
         priority,
         deviceId: getDeviceId(),
         deviceName: await getDeviceName(),
-        lokasi,
+        idempotencyKey: idempotencyRef.current,
       });
       if (files.length > 0 && ticket?.id) {
         const form = new FormData();
@@ -159,20 +150,6 @@ export default function TicketForm({ onSubmit, onCancel }: Props) {
               </button>
             ))}
           </div>
-        </div>
-
-        <div className="form-group">
-          <label>Lokasi (opsional)</label>
-          <select
-            value={lokasi}
-            onChange={e => setLokasi(e.target.value)}
-            className="lokasi-select"
-          >
-            <option value="">- Pilih lokasi -</option>
-            {groups.map(g => (
-              <option key={g.id} value={g.nama}>{g.nama}</option>
-            ))}
-          </select>
         </div>
 
         <div className="form-group">

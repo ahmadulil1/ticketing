@@ -8,7 +8,9 @@ use tauri::{
 /// ponytail: WebView2 di sebagian GPU tidak repaint setelah show() dari state hidden,
 /// menyebabkan window blank putih / sisa bayangan. Nudge ukuran +1px memicu repaint.
 pub fn nudge_repaint(window: &tauri::WebviewWindow) {
-    if let Ok(size) = window.outer_size() {
+    // pakai inner_size: outer_size include decorations/shadow -> set_size (inner)
+    // jadi window bertambah besar tiap dipanggil (bug "chat membesar saat diklik")
+    if let Ok(size) = window.inner_size() {
         if size.width > 0 && size.height > 0 {
             let _ = window.set_size(tauri::Size::Physical(tauri::PhysicalSize {
                 width: size.width,

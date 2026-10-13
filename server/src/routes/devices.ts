@@ -20,12 +20,12 @@ const deviceRoutes: FastifyPluginAsync = async (fastify) => {
       `INSERT INTO device_specs (device_id, hostname, cpu_model, ram_gb, gpu_model, os_name, disks)
        VALUES ($1, $2, $3, $4, $5, $6, $7)
        ON CONFLICT (device_id) DO UPDATE SET
-         hostname = COALESCE(NULLIF(EXCLUDED.hostname, ''), device_specs.hostname),
-         cpu_model = COALESCE(NULLIF(EXCLUDED.cpu_model, ''), device_specs.cpu_model),
-         ram_gb = COALESCE(EXCLUDED.ram_gb, device_specs.ram_gb),
-         gpu_model = COALESCE(NULLIF(EXCLUDED.gpu_model, ''), device_specs.gpu_model),
-         os_name = COALESCE(NULLIF(EXCLUDED.os_name, ''), device_specs.os_name),
-         disks = COALESCE(EXCLUDED.disks, device_specs.disks),
+         hostname = EXCLUDED.hostname,
+         cpu_model = EXCLUDED.cpu_model,
+         ram_gb = EXCLUDED.ram_gb,
+         gpu_model = EXCLUDED.gpu_model,
+         os_name = EXCLUDED.os_name,
+         disks = EXCLUDED.disks,
          reported_at = CURRENT_TIMESTAMP`,
       [body.device_id, spec.hostname, spec.cpu_model, spec.ram_gb, spec.gpu_model, spec.os_name, spec.disks ? JSON.stringify(spec.disks) : null]
     );
