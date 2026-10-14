@@ -1,6 +1,7 @@
 import { useState, useRef, useEffect } from "react";
-import { LogOut, ChevronDown } from "lucide-react";
+import { LogOut, ChevronDown, GraduationCap } from "lucide-react";
 import { useUser, useLogout } from "../hooks/useAuth";
+import { replayTutorial } from "./Tutorial";
 
 export default function AccountMenu() {
   const [open, setOpen] = useState(false);
@@ -39,6 +40,9 @@ export default function AccountMenu() {
             <div className="account-sub">{user.username} • {roleLabel}</div>
           </div>
           <hr />
+          <button onClick={() => { setOpen(false); replayTutorial(); }}>
+            <GraduationCap size={16} /> Lihat Tutorial
+          </button>
           <button className="danger" onClick={() => { setOpen(false); logout(); }}>
             <LogOut size={16} /> Keluar
           </button>

@@ -275,3 +275,36 @@ button { font-family: inherit; }
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { animation-duration: 0.01ms !important; transition-duration: 0.01ms !important; }
 }
+
+/* Tutorial — modal panduan saat install pertama */
+.tutorial-overlay { position: fixed; inset: 0; z-index: 10001; background: hsl(220 31% 11% / 0.55); display: flex; align-items: center; justify-content: center; padding: 0.75rem; animation: slideUp 0.2s ease; }
+.tutorial-card { background: var(--surface); border: 1px solid var(--border); border-radius: 14px; box-shadow: var(--shadow-md); width: 100%; max-width: 380px; max-height: 100%; display: flex; flex-direction: column; overflow: hidden; }
+.tutorial-head { display: flex; align-items: center; gap: 0.5rem; padding: 0.75rem 0.875rem; border-bottom: 1px solid var(--border); }
+.tutorial-head h2 { font-size: 0.9375rem; font-weight: 650; flex: 1; }
+.tutorial-step { font-size: 0.6875rem; font-weight: 700; color: var(--primary); background: var(--accent); border-radius: 999px; padding: 2px 8px; flex-shrink: 0; }
+.tutorial-skip { border: none; background: none; color: var(--muted-fg); cursor: pointer; padding: 0.375rem; border-radius: 8px; display: flex; }
+.tutorial-skip:hover { background: var(--muted); color: var(--foreground); }
+
+/* Area gambar + penanda nomor */
+.tutorial-img-scale { background: var(--muted); flex-shrink: 0; padding: 8px; }
+.tutorial-img-frame { position: relative; margin: 0 auto; }
+.tutorial-img-frame img { display: block; width: 100%; height: auto; border-radius: 8px; }
+.tutorial-marker { position: absolute; transform: translate(-50%, -50%); display: flex; align-items: center; gap: 0.375rem; max-width: 60%; }
+.tutorial-marker .tutorial-dot { flex-shrink: 0; width: 22px; height: 22px; border-radius: 50%; background: var(--primary); color: var(--primary-fg); font-size: 0.6875rem; font-weight: 700; display: flex; align-items: center; justify-content: center; box-shadow: 0 0 0 2px var(--surface), var(--shadow-sm); }
+.tutorial-marker-label { font-size: 0.6875rem; font-weight: 600; color: var(--foreground); background: var(--surface); border: 1px solid var(--border); border-radius: 8px; padding: 2px 8px; box-shadow: var(--shadow-sm); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+.tutorial-tips { list-style: none; padding: 0.75rem 1rem; margin: 0; overflow-y: auto; flex: 1; min-height: 0; }
+.tutorial-tips li { font-size: 0.8125rem; color: var(--muted-fg); padding-left: 1.125rem; position: relative; margin-bottom: 0.5rem; line-height: 1.45; }
+.tutorial-tips li:last-child { margin-bottom: 0; }
+.tutorial-tips li::before { content: "•"; position: absolute; left: 0; color: var(--primary); font-weight: 700; }
+
+.tutorial-foot { display: flex; align-items: center; justify-content: space-between; padding: 0.75rem 1rem; border-top: 1px solid var(--border); gap: 0.5rem; }
+.tutorial-dots { display: flex; gap: 5px; }
+.tutorial-dots span { width: 6px; height: 6px; border-radius: 50%; background: var(--border-strong); transition: background 0.15s; }
+.tutorial-dots span.active { background: var(--primary); }
+.tutorial-nav { display: flex; gap: 0.5rem; }
+.tutorial-nav button { display: flex; align-items: center; gap: 0.25rem; padding: 0.5rem 0.875rem; border-radius: var(--radius); font-size: 0.8125rem; font-weight: 600; cursor: pointer; min-height: 36px; transition: all 0.15s; }
+.tut-back { background: none; border: 1px solid var(--border); color: var(--foreground); }
+.tut-back:hover { background: var(--muted); }
+.tut-next { background: var(--primary); border: none; color: var(--primary-fg); }
+.tut-next:hover { background: var(--primary-strong); }

@@ -307,7 +307,7 @@ body {
 .ticket-header-info .meta { font-size: 0.875rem; color: var(--text-2); margin-bottom: 0.5rem; display: flex; flex-wrap: wrap; gap: 0.25rem 1rem; }
 .ticket-header-info .actions { display: flex; flex-wrap: wrap; gap: 0.5rem; align-items: center; }
 .ticket-header-info .actions label { font-size: 0.75rem; color: var(--text-2); }
-.ticket-header-info .actions select { padding: 0.5rem; border-radius: 6px; border: 1px solid var(--border); background: var(--surface); color: var(--text); font-family: inherit; font-size: 0.8125rem; }
+.ticket-header-info .actions select { padding: 0.5rem; border-radius: 8px; border: 1px solid var(--border); background: var(--surface); color: var(--text); font-family: inherit; font-size: 0.8125rem; }
 
 .messages {
   flex: 1; min-height: 0; overflow-y: auto; padding: 1rem;

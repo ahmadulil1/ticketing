@@ -3,6 +3,7 @@ import { Routes, Route, Navigate } from "react-router-dom";
 import Login from "./components/Login";
 import MiniWindow from "./components/MiniWindow";
 import PetOverlay from "./components/PetOverlay";
+import { tutorialSeen } from "./components/Tutorial";
 import { useTheme } from "./hooks/useTheme";
 import { useAutoUpdate } from "./hooks/useAutoUpdate";
 
@@ -39,7 +40,16 @@ function App() {
       setLabel("pet-overlay");
       return;
     }
-    getCurrentWindowLabel().then(setLabel);
+    getCurrentWindowLabel().then((label) => {
+      setLabel(label);
+      // Install pertama: window mini memulai tersembunyi (pet saja yang tampil).
+      // Saat tutorial belum dilihat, paksa tampil agar user melihat panduannya.
+      if (label === "mini" && !tutorialSeen() && "__TAURI_INTERNALS__" in window) {
+        import("@tauri-apps/api/window")
+          .then(({ getCurrentWindow }) => getCurrentWindow().show())
+          .catch(() => {});
+      }
+    });
     if (window.location.hash !== "#pet-overlay") {
       import("./services/device").then(({ reportSpec }) => reportSpec());
     }

@@ -4,6 +4,7 @@ import TicketList from "./TicketList";
 import ChatView from "./ChatView";
 import TicketForm from "./TicketForm";
 import AccountMenu from "./AccountMenu";
+import Tutorial, { tutorialSeen } from "./Tutorial";
 import { useTickets } from "../hooks/useTickets";
 import { useUnread } from "../hooks/useUnread";
 import { useRealtime } from "../hooks/useRealtime";
@@ -58,11 +59,20 @@ export default function MiniWindow() {
   const [search, setSearch] = useState("");
   const [status, setStatus] = useState("");
   const [pinned, setPinned] = useState(false);
+  // Tutorial muncul otomatis saat install pertama (flag localStorage)
+  const [showTutorial, setShowTutorial] = useState(!tutorialSeen());
   const { tickets, isLoading, refetch, createTicket } = useTickets({ search, status });
   const { unread } = useUnread();
   const onDrag = useDragRegion();
   // Refresh list saat pesan baru masuk di tiket manapun
   useRealtime("__list__");
+
+  // Menu akun bisa memutar ulang tutorial lewat event custom
+  useEffect(() => {
+    const onShow = () => setShowTutorial(true);
+    window.addEventListener("tutorial:show", onShow);
+    return () => window.removeEventListener("tutorial:show", onShow);
+  }, []);
 
   // Always-on-top toggle
   useEffect(() => {
@@ -124,6 +134,8 @@ export default function MiniWindow() {
           <button onClick={hideWindow} title="Tutup"><X size={18} /></button>
         </div>
       </header>
+
+      {showTutorial && <Tutorial onClose={() => setShowTutorial(false)} />}
 
       <div className="stats">
         <div className="stat baru"><span className="count">{stats.baru}</span><span className="label">Baru</span></div>
