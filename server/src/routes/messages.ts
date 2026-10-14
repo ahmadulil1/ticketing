@@ -124,10 +124,20 @@ const messageRoutes: FastifyPluginAsync = async (fastify) => {
     const redis = (fastify as any).redis;
     if (!redis) return { success: false };
 
+    // Label ramah: username agent / hostname device, bukan UUID mentah
+    let label = "Pengguna";
+    if (user.role !== "user") {
+      const u = await db.query("SELECT username FROM users WHERE id = $1", [user.id]);
+      if (u.rows[0]) label = u.rows[0].username;
+    } else {
+      const d = await db.query("SELECT hostname FROM device_specs WHERE device_id = $1", [user.id]);
+      if (d.rows[0]?.hostname) label = d.rows[0].hostname;
+    }
+
     if (isTyping) {
       await redis.set(`typing:${ticketId}:${user.id}`, JSON.stringify({
         userId: user.id,
-        username: user.id,
+        username: label,
         role: user.role,
         at: Date.now(),
       }), "EX", 5);
@@ -138,7 +148,7 @@ const messageRoutes: FastifyPluginAsync = async (fastify) => {
     // Broadcast via pub/sub
     await redis.publish(
       `ticket:${ticketId}`,
-      JSON.stringify({ type: "typing", ticketId, userId: user.id, role: user.role, isTyping })
+      JSON.stringify({ type: "typing", ticketId, userId: user.id, username: label, role: user.role, isTyping })
     );
 
     return { success: true };
