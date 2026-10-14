@@ -71,7 +71,15 @@ export default function MiniWindow() {
   useEffect(() => {
     const onShow = () => setShowTutorial(true);
     window.addEventListener("tutorial:show", onShow);
-    return () => window.removeEventListener("tutorial:show", onShow);
+    // Pet overlay (window terpisah) memicu replay via storage event lintas-window
+    const onStorage = (e: StorageEvent) => {
+      if (e.key === "tutorial:show") setShowTutorial(true);
+    };
+    window.addEventListener("storage", onStorage);
+    return () => {
+      window.removeEventListener("tutorial:show", onShow);
+      window.removeEventListener("storage", onStorage);
+    };
   }, []);
 
   // Always-on-top toggle

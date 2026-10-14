@@ -31,10 +31,11 @@ const STEPS: Step[] = [
     alt: "Tampilan pet overlay dengan jam, tanggal, dan pemantauan komputer",
     title: "Pendamping di layar Anda",
     markers: [
-      { x: 9, y: 50, label: "Pet — seret untuk pindah" },
-      { x: 59, y: 36, label: "Jam & hari tanggal" },
-      { x: 62, y: 68, label: "Pemantauan CPU, RAM, SSD, internet" },
-      { x: 96, y: 14, label: "Pesan belum dibaca" },
+      { x: 10, y: 50, label: "Pet — seret untuk pindah" },
+      { x: 59, y: 42, label: "Jam & hari tanggal" },
+      { x: 59, y: 65, label: "Tanggal" },
+      { x: 59, y: 87, label: "Pemantauan CPU, RAM, SSD, internet" },
+      { x: 19, y: 8, label: "Pesan belum dibaca" },
     ],
     tips: [
       "Pet selalu di atas layar: klik sekali untuk membuka aplikasi, tahan dan seret untuk memindah.",

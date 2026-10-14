@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from "react";
-import { EyeOff, ExternalLink, X } from "lucide-react";
+import { EyeOff, ExternalLink, X, GraduationCap } from "lucide-react";
 import { useUnread } from "../hooks/useUnread";
 import { useRealtime } from "../hooks/useRealtime";
 import petGif from "../assets/pet.gif";
@@ -196,6 +196,13 @@ export default function PetOverlay({ onClick }: Props) {
         <div className="pet-context-menu">
           <button onClick={() => { onClick(); tauriShowMini(); setShowMenu(false); }}>
             <ExternalLink size={16} /> Buka Ticketing
+          </button>
+          <button onClick={() => {
+            // Event cross-window: storage event diterima MiniWindow (sama origin) untuk replay tutorial
+            localStorage.setItem("tutorial:show", String(Date.now()));
+            onClick(); tauriShowMini(); setShowMenu(false);
+          }}>
+            <GraduationCap size={16} /> Lihat Tutorial
           </button>
           <button onClick={handleHide}>
             <EyeOff size={16} /> Sembunyikan Pet

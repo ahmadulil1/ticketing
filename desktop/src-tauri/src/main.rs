@@ -160,6 +160,8 @@ fn get_device_name(_app: tauri::AppHandle) -> Result<String, String> {
 }
 
 // GPU dari registry (tanpa crate `wmi`): baca DriverDesc subkey class display.
+// ponytail: Windows-only. Di Linux GPU bisa via sysinfo (Devices) — upgrade nanti.
+#[cfg(windows)]
 fn get_gpu_model() -> Option<String> {
     use windows::Win32::System::Registry::{HKEY_LOCAL_MACHINE, RegGetValueW, RRF_RT_REG_SZ};
     use windows::core::{PCWSTR, w};
@@ -192,6 +194,11 @@ fn get_gpu_model() -> Option<String> {
         }
     }
     seen.first().cloned()
+}
+
+#[cfg(not(windows))]
+fn get_gpu_model() -> Option<String> {
+    None
 }
 
 fn sys_state() -> &'static Mutex<sysinfo_probe::State> {
