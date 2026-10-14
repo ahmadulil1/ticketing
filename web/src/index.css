@@ -230,10 +230,10 @@ body {
 .device-sub { font-size: 0.6875rem; color: var(--text-2); }
 .device-date { font-size: 0.6875rem; color: var(--text-3); }
 .device-meta { font-size: 0.6875rem; margin-top: 0.25rem; }
-.badge-active { background: color-mix(in srgb, var(--success) 16%, transparent); color: var(--success); padding: 2px 8px; border-radius: 10px; font-weight: 600; }
-.badge-done { background: var(--surface-3); color: var(--text-2); padding: 2px 8px; border-radius: 10px; }
-.badge-off { background: color-mix(in srgb, var(--danger) 14%, transparent); color: var(--danger); padding: 2px 8px; border-radius: 10px; font-weight: 600; }
-.badge-warn { background: color-mix(in srgb, var(--warning, #f59e0b) 16%, transparent); color: var(--warning, #b45309); padding: 2px 8px; border-radius: 10px; font-weight: 600; }
+.badge-active { background: color-mix(in srgb, var(--success) 16%, transparent); color: var(--success); padding: 2px 8px; border-radius: 10px; font-weight: 600; font-size: 0.6875rem; }
+.badge-done { background: var(--surface-3); color: var(--text-2); padding: 2px 8px; border-radius: 10px; font-size: 0.6875rem; }
+.badge-off { background: color-mix(in srgb, var(--danger) 14%, transparent); color: var(--danger); padding: 2px 8px; border-radius: 10px; font-weight: 600; font-size: 0.6875rem; }
+.badge-warn { background: color-mix(in srgb, var(--warning, #f59e0b) 16%, transparent); color: var(--warning, #b45309); padding: 2px 8px; border-radius: 10px; font-weight: 600; font-size: 0.6875rem; }
 
 /* ===== Filters ===== */
 .filters { display: flex; flex-wrap: wrap; gap: 0.625rem; margin-bottom: 0.875rem; }
@@ -391,7 +391,7 @@ body {
 .agent-head .badge { margin-left: auto; }
 .agent-meta { font-size: 0.75rem; color: var(--text-2); margin: 0.625rem 0; }
 .agent-actions { display: flex; gap: 0.5rem; align-items: center; }
-.agent-actions select { padding: 0.375rem 0.5rem; border: 1px solid var(--border); border-radius: 6px; font-size: 0.75rem; background: var(--surface); color: var(--text); font-family: inherit; }
+.agent-actions select { padding: 0.375rem 0.5rem; border: 1px solid var(--border); border-radius: 8px; font-size: 0.75rem; background: var(--surface); color: var(--text); font-family: inherit; }
 
 /* ===== Login ===== */
 .login-container { min-height: 100vh; display: flex; align-items: center; justify-content: center; background: linear-gradient(135deg, #4f6df5 0%, #764ba2 100%); }
