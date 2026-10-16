@@ -138,7 +138,7 @@ export default function ChatView({ ticketId, onBack }: Props) {
         <h3>{ticket.title}</h3>
         <p>{ticket.description}</p>
         <div className="meta">
-          <span>Pelapor: {ticket.requester_full_name || ticket.requester_name}</span>
+          <span>Pelapor: {ticket.requester_full_name || ticket.requester_name || "Tamu"}</span>
           <span>•</span>
           <span>Dibuat: {dayjs(ticket.created_at).format("DD MMM YYYY HH:mm")}</span>
         </div>
@@ -177,7 +177,14 @@ export default function ChatView({ ticketId, onBack }: Props) {
               return (
                 <div key={msg.id} className={`message ${mine ? "mine" : "theirs"} ${msg.message_type}`}>
                   <div className="message-header">
-                    <span className="sender">{msg.sender_full_name || msg.sender_name || "System"}</span>
+                    <span className="sender">
+                      {msg.sender_full_name || msg.sender_name ||
+                        (msg.sender_role === "user"
+                          ? isAgent
+                            ? ticket?.requester_full_name || ticket?.requester_name || "Tamu"
+                            : "Anda"
+                          : "System")}
+                    </span>
                     <span className="time">{dayjs(msg.created_at).format("HH:mm")}</span>
                     {mine && msg.read_at && <span className="read-tick" title="Dibaca">✓✓</span>}
                   </div>

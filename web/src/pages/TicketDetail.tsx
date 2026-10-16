@@ -211,7 +211,14 @@ export default function TicketDetail() {
           return (
             <div key={msg.id} className={"message " + (mine ? "mine" : "theirs") + " " + msg.message_type}>
               <div className="message-header">
-                <span className="sender">{msg.sender_full_name || msg.sender_name || "System"}</span>
+                <span className="sender">
+                  {msg.sender_full_name || msg.sender_name ||
+                    (msg.sender_role === "user"
+                      ? user.role === "user"
+                        ? "Anda"
+                        : ticket.requester_full_name || ticket.requester_name || "Karyawan"
+                      : "System")}
+                </span>
                 <span className="time">{dayjs(msg.created_at).format("HH:mm")}</span>
                 {mine && msg.read_at && <span className="read-tick" title="Dibaca">✓✓</span>}
               </div>

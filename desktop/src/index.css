@@ -172,10 +172,10 @@ button { font-family: inherit; }
 .message-body { padding: 0.625rem 0.875rem; border-radius: 14px; box-shadow: var(--shadow-sm); line-height: 1.45; word-wrap: break-word; font-size: 0.8125rem; }
 .message.user .message-body { background: var(--primary); color: var(--primary-fg); border-bottom-right-radius: 4px; }
 .message.agent .message-body { background: var(--surface); color: var(--foreground); border: 1px solid var(--border); border-bottom-left-radius: 4px; }
-.message.system .message-body { background: var(--muted); color: var(--muted-fg); font-size: 0.75rem; font-style: italic; text-align: center; border: 1px solid var(--border); border-radius: 8px; box-shadow: none; }
-.message.internal .message-body { background: hsl(43 96% 94%); border: 1px solid hsl(43 96% 76%); color: hsl(43 96% 30%); }
 .message.mine .message-body { background: var(--primary); color: var(--primary-fg); border-bottom-right-radius: 4px; }
 .message.theirs .message-body { background: var(--surface); color: var(--foreground); border: 1px solid var(--border); border-bottom-left-radius: 4px; }
+.message.system .message-body { background: var(--muted); color: var(--muted-fg); font-size: 0.75rem; font-style: italic; text-align: center; border: 1px solid var(--border); border-radius: 8px; box-shadow: none; }
+.message.internal .message-body { background: hsl(43 96% 94%); border: 1px solid hsl(43 96% 76%); color: hsl(43 96% 30%); }
 .internal-label { font-size: 0.625rem; color: hsl(43 96% 32%); margin-top: 0.125rem; font-weight: 600; }
 
 [data-theme="dark"] .message.internal .message-body { background: hsl(43 40% 18%); border: 1px solid hsl(43 50% 32%); color: hsl(43 90% 72%); }

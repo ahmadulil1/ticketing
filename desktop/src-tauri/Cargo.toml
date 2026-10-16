@@ -13,7 +13,10 @@ tauri-plugin-autostart = "2"
 tauri-plugin-opener = "2"
 tauri-plugin-notification = "2"
 tauri-plugin-single-instance = "2"
-tauri-plugin-updater = "2"
+# ponytail: default-features off — seluruh versi zip <9.0.3 di-yank crates.io,
+# fitur "zip" (ekstraksi bundle macOS/Linux) tak bisa di-resolve.
+# Windows (NSIS/MSI) tidak butuh fitur ini. Re-enable kalau zip sudah un-yank.
+tauri-plugin-updater = { version = "2", default-features = false, features = ["rustls-tls", "system-proxy"] }
 tauri-plugin-process = "2"
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
