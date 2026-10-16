@@ -38,9 +38,11 @@ export async function buildApp() {
     "http://tauri.localhost",
     "https://tauri.localhost",
   ]);
+  // Dev Tauri/vite pakai port acak di localhost (mis. 127.0.0.1:1430); izinkan semua.
+  const localOrigin = /^https?:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/;
   await fastify.register(cors, {
     // Native/Tauri dan non-browser tak mengirim Origin; browser wajib whitelist.
-    origin: (origin, cb) => cb(null, !origin || allowedOrigins.has(origin)),
+    origin: (origin, cb) => cb(null, !origin || allowedOrigins.has(origin) || localOrigin.test(origin)),
   });
   await fastify.register(websocket);
   await fastify.register(multipart, {
