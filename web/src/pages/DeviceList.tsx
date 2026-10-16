@@ -62,7 +62,7 @@ export default function DeviceList() {
               </button>
             ))}
             {all.length === 0 && (
-              <div className="empty">Belum ada device mendaftar tiket.</div>
+              <div className="empty">Belum ada device terdaftar.</div>
             )}
           </div>
           <Pagination page={cur} totalPages={totalPages} total={all.length} onChange={setPage} label="device" />

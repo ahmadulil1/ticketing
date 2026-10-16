@@ -65,16 +65,17 @@ const deviceRoutes: FastifyPluginAsync = async (fastify) => {
 
     const result = await db.query(
       `SELECT
-         device_id,
-         MAX(device_name) AS device_name,
-         COUNT(*) AS ticket_count,
-         COUNT(*) FILTER (WHERE status NOT IN ('selesai', 'ditutup')) AS active_count,
-         COUNT(*) FILTER (WHERE status = 'baru') AS baru_count,
-         MAX(updated_at) AS last_activity
-       FROM tickets
-       WHERE device_id IS NOT NULL
-       GROUP BY device_id
-       ORDER BY MAX(updated_at) DESC`
+         COALESCE(s.device_id, t.device_id) AS device_id,
+         COALESCE(MAX(t.device_name), s.hostname, COALESCE(s.device_id, t.device_id)) AS device_name,
+         COUNT(t.id) AS ticket_count,
+         COUNT(t.id) FILTER (WHERE t.status NOT IN ('selesai', 'ditutup')) AS active_count,
+         COUNT(t.id) FILTER (WHERE t.status = 'baru') AS baru_count,
+         COALESCE(MAX(t.updated_at), s.reported_at) AS last_activity
+       FROM device_specs s
+       FULL OUTER JOIN tickets t ON t.device_id = s.device_id
+       WHERE COALESCE(s.device_id, t.device_id) IS NOT NULL
+       GROUP BY COALESCE(s.device_id, t.device_id), s.hostname, s.reported_at
+       ORDER BY COALESCE(MAX(t.updated_at), s.reported_at) DESC`
     );
 
     return result.rows;
@@ -97,15 +98,16 @@ const deviceRoutes: FastifyPluginAsync = async (fastify) => {
 
     const info = await db.query(
       `SELECT
-         device_id,
-         MAX(device_name) AS device_name,
-         COUNT(*) AS ticket_count,
-         COUNT(*) FILTER (WHERE status NOT IN ('selesai', 'ditutup')) AS active_count,
-         MAX(created_at) AS first_seen,
-         MAX(updated_at) AS last_activity
-       FROM tickets
-       WHERE device_id = $1
-       GROUP BY device_id`,
+         COALESCE(s.device_id, $1) AS device_id,
+         COALESCE(MAX(t.device_name), s.hostname, $1) AS device_name,
+         COUNT(t.id) AS ticket_count,
+         COUNT(t.id) FILTER (WHERE t.status NOT IN ('selesai', 'ditutup')) AS active_count,
+         COALESCE(MIN(t.created_at), s.reported_at) AS first_seen,
+         COALESCE(MAX(t.updated_at), s.reported_at) AS last_activity
+       FROM device_specs s
+       FULL OUTER JOIN tickets t ON t.device_id = s.device_id
+       WHERE COALESCE(s.device_id, t.device_id) = $1
+       GROUP BY s.device_id, s.hostname, s.reported_at`,
       [deviceId]
     );
 
