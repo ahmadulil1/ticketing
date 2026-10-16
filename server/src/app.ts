@@ -35,6 +35,7 @@ export async function buildApp() {
     "http://localhost:5173",
     "http://localhost:1420",
     "tauri://localhost",
+    "http://tauri.localhost",
     "https://tauri.localhost",
   ]);
   await fastify.register(cors, {

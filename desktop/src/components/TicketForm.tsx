@@ -74,8 +74,8 @@ export default function TicketForm({ onSubmit, onCancel }: Props) {
 
   const validate = () => {
     const errs: { description?: string } = {};
-    if (!description.trim() || description.length < 10 || description.length > 10000) {
-      errs.description = "Detail 10-10000 karakter";
+    if (!description.trim() || description.length < 50 || description.length > 10000) {
+      errs.description = "Detail 50-10000 karakter";
     }
     setErrors(errs);
     return Object.keys(errs).length === 0;
@@ -103,7 +103,10 @@ export default function TicketForm({ onSubmit, onCancel }: Props) {
         });
       }
     } catch (err: any) {
-      setErrors({ description: err.response?.data?.error || "Gagal membuat tiket" });
+      // err.response kosong = request diblokir webview (CORS/network) atau server mati
+      const msg = err.response?.data?.error
+        || (err.request ? "Gagal terhubung ke server (cek jaringan/CORS)" : "Gagal membuat tiket");
+      setErrors({ description: msg });
     } finally {
       setSubmitting(false);
     }
