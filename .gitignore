@@ -20,3 +20,7 @@ out.txt
 # Tauri
 src-tauri/target/
 src-tauri/gen/
+src-tauri/icons/
+
+# Agent skills & local tools
+.agents/

@@ -5,17 +5,18 @@ interface Props {
   totalPages: number;
   total: number;
   onChange: (page: number) => void;
+  label?: string;
 }
 
 /**
  * Pagination daftar tiket dashboard.
  * ponytail: 5 tombol halaman terlihat sekaligus; sisanya ellipsis.
  */
-export default function Pagination({ page, totalPages, total, onChange }: Props) {
+export default function Pagination({ page, totalPages, total, onChange, label = "tiket" }: Props) {
   if (totalPages <= 1) {
     return (
       <div className="pagination">
-        <span className="page-info">Total {total} tiket</span>
+        <span className="page-info">Total {total} {label}</span>
       </div>
     );
   }
@@ -33,7 +34,7 @@ export default function Pagination({ page, totalPages, total, onChange }: Props)
   return (
     <div className="pagination">
       <span className="page-info">
-        Halaman {page} / {totalPages} &middot; {total} tiket
+        Halaman {page} / {totalPages} &middot; {total} {label}
       </span>
       <div className="page-btns">
         <button

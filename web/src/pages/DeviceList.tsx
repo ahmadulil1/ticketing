@@ -2,9 +2,14 @@ import { useQuery } from "@tanstack/react-query";
 import api from "../lib/api";
 import { Monitor } from "lucide-react";
 import { useNavigate } from "react-router-dom";
+import { useState } from "react";
+import Pagination from "../components/Pagination";
+
+const PER = 10;
 
 export default function DeviceList() {
   const navigate = useNavigate();
+  const [page, setPage] = useState(1);
 
   const { data: devices, isLoading } = useQuery({
     queryKey: ["devices"],
@@ -15,6 +20,11 @@ export default function DeviceList() {
     refetchInterval: 10000,
   });
 
+  const all = devices || [];
+  const totalPages = Math.max(1, Math.ceil(all.length / PER));
+  const cur = Math.min(page, totalPages);
+  const shown = all.slice((cur - 1) * PER, cur * PER);
+
   return (
     <div className="page">
       <div className="page-head">
@@ -24,36 +34,39 @@ export default function DeviceList() {
       {isLoading ? (
         <div className="loading">Memuat...</div>
       ) : (
-        <div className="device-grid wide">
-          {(devices || []).map((d) => (
-            <button
-              key={d.device_id}
-              className="device-card"
-              onClick={() => navigate(`/devices/${d.device_id}`)}
-            >
-              <span className="device-icon"><Monitor size={18} /></span>
-              <span className="device-name">{d.device_name || d.device_id}</span>
-              <span className="device-sub">
-                {parseInt(d.ticket_count)} tiket total
-              </span>
-              <span className="device-meta">
-                {parseInt(d.active_count) > 0 ? (
-                  <span className="badge-active">{d.active_count} tiket aktif</span>
-                ) : (
-                  <span className="badge-done">Semua selesai</span>
-                )}
-              </span>
-              {d.last_activity && (
-                <span className="device-date">
-                  Aktif terakhir {new Date(d.last_activity).toLocaleDateString("id-ID")}
+        <>
+          <div className="device-grid wide">
+            {shown.map((d) => (
+              <button
+                key={d.device_id}
+                className="device-card"
+                onClick={() => navigate(`/devices/${d.device_id}`)}
+              >
+                <span className="device-icon"><Monitor size={18} /></span>
+                <span className="device-name">{d.device_name || d.device_id}</span>
+                <span className="device-sub">
+                  {parseInt(d.ticket_count)} tiket total
                 </span>
-              )}
-            </button>
-          ))}
-          {devices?.length === 0 && (
-            <div className="empty">Belum ada device mendaftar tiket.</div>
-          )}
-        </div>
+                <span className="device-meta">
+                  {parseInt(d.active_count) > 0 ? (
+                    <span className="badge-active">{d.active_count} tiket aktif</span>
+                  ) : (
+                    <span className="badge-done">Semua selesai</span>
+                  )}
+                </span>
+                {d.last_activity && (
+                  <span className="device-date">
+                    Aktif terakhir {new Date(d.last_activity).toLocaleDateString("id-ID")}
+                  </span>
+                )}
+              </button>
+            ))}
+            {all.length === 0 && (
+              <div className="empty">Belum ada device mendaftar tiket.</div>
+            )}
+          </div>
+          <Pagination page={cur} totalPages={totalPages} total={all.length} onChange={setPage} label="device" />
+        </>
       )}
     </div>
   );

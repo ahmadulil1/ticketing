@@ -6,6 +6,7 @@ interface Ticket {
   title: string;
   status: string;
   requester_name?: string;
+  device_name?: string;
   created_at: string;
   unread_count?: number;
 }
@@ -52,7 +53,7 @@ export default function TicketList({ tickets, onSelect }: Props) {
             </div>
             <div className="ticket-title">{ticket.title}</div>
             <div className="ticket-meta">
-              <span>{ticket.requester_name || "Unknown"}</span>
+              <span>{ticket.device_name || ticket.requester_name || "Karyawan"}</span>
               <span>•</span>
               <span>{dayjs(ticket.created_at).format("DD MMM HH:mm")}</span>
             </div>

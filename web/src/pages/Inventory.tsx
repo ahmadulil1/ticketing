@@ -91,44 +91,22 @@ export default function Inventory() {
             <Search size={15} />
             <input placeholder="Cari nomor, hostname, lokasi..." value={q} onChange={e => setQ(e.target.value)} />
           </div>
-          <div className="inv-list">{
-            (() => {
-              // group per lokasi; dlm grup sort by no_inventaris; grup lokasi kosong dibawah
-              const byLokasi = new Map<string, any[]>();
-              for (const it of items || []) {
-                const key = (it.lokasi || "").trim() || "";
-                if (!byLokasi.has(key)) byLokasi.set(key, []);
-                byLokasi.get(key)!.push(it);
-              }
-              for (const arr of byLokasi.values()) arr.sort((a: any, b: any) => String(a.no_inventaris).localeCompare(String(b.no_inventaris)));
-              const keys = [...byLokasi.keys()].sort((a, b) => {
-                if (a === "") return 1; if (b === "") return -1;
-                return a.localeCompare(b, "id");
-              });
-              if (byLokasi.size === 0) return <div className="empty">Belum ada aset inventaris.</div>;
-              return keys.map((lok) => (
-                <div key={lok || "__nolokasi"}>
-                  <h3 className="inv-group-title" style={{ margin: "0.75rem 0 0.35rem", fontSize: "0.9rem" }}>
-                    <Package size={13} style={{ verticalAlign: "-2px" }} /> {lok || "Tanpa lokasi"} ({byLokasi.get(lok)!.length})
-                  </h3>
-                  {byLokasi.get(lok)!.map((it: any) => {
-                  const h = healthBadge(it.disks);
-                  return (
-                    <button key={it.id} className="ticket-row" onClick={() => navigate(`/inventories/${it.id}`)}>
-                      <span className="t-num"><Package size={14} /> {it.no_inventaris}</span>
-                      <span className="t-title">{it.hostname || it.lokasi || "-"}</span>
-                      <span className="t-status badge-active">{it.cpu_model || "-"}</span>
-                      <span className="t-prio">{h.text}</span>
-                      <span className="t-date">
-                        {it.device_id ? `${it.ticket_total ?? 0} tiket` : "tanpa device"}
-                      </span>
-                    </button>
-                  );
-                  })}
-                </div>
-              ));
-            })()
-          }
+          <div className="inv-list">
+            {(items || []).map((it) => {
+              const h = healthBadge(it.disks);
+              return (
+                <button key={it.id} className="inv-card" onClick={() => navigate(`/inventories/${it.id}`)}>
+                  <span className="inv-card-top"><Package size={14} /> {it.no_inventaris}</span>
+                  <span className="inv-name">{it.hostname || it.lokasi || "-"}</span>
+                  <span className="inv-meta">{it.cpu_model || "-"}</span>
+                  <span className="inv-meta">{h.text}</span>
+                  <span className="inv-foot">
+                    {it.device_id ? `${it.ticket_total ?? 0} tiket` : "tanpa device"}
+                  </span>
+                </button>
+              );
+            })}
+            {items?.length === 0 && <div className="empty">Belum ada aset inventaris.</div>}
           </div>
         </div>
       )}

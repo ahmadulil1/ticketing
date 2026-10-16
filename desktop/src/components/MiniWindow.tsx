@@ -4,28 +4,34 @@ import TicketList from "./TicketList";
 import ChatView from "./ChatView";
 import TicketForm from "./TicketForm";
 import AccountMenu from "./AccountMenu";
+import Tutorial, { tutorialSeen } from "./Tutorial";
 import { useTickets } from "../hooks/useTickets";
 import { useUnread } from "../hooks/useUnread";
 import { useRealtime } from "../hooks/useRealtime";
 import { useDragRegion } from "../hooks/useDragRegion";
 import { useTheme } from "../hooks/useTheme";
 
+const isTauri = () =>
+  typeof window !== "undefined" &&
+  (typeof (window as any).__TAURI_INTERNALS__ !== "undefined" ||
+   typeof (window as any).__TAURI__ !== "undefined");
+
 async function tauriEmit(event: string) {
-  if (typeof window.__TAURI__ !== "undefined") {
+  if (isTauri()) {
     const { emit } = await import("@tauri-apps/api/event");
     return emit(event);
   }
 }
 
 async function minimizeWindow() {
-  if (typeof window.__TAURI__ !== "undefined") {
+  if (isTauri()) {
     const { getCurrentWindow } = await import("@tauri-apps/api/window");
     getCurrentWindow().minimize();
   }
 }
 
 async function hideWindow() {
-  if (typeof window.__TAURI__ !== "undefined") {
+  if (isTauri()) {
     const { getCurrentWindow } = await import("@tauri-apps/api/window");
     getCurrentWindow().hide();
   } else {
@@ -53,15 +59,32 @@ export default function MiniWindow() {
   const [search, setSearch] = useState("");
   const [status, setStatus] = useState("");
   const [pinned, setPinned] = useState(false);
+  // Tutorial muncul otomatis saat install pertama (flag localStorage)
+  const [showTutorial, setShowTutorial] = useState(!tutorialSeen());
   const { tickets, isLoading, refetch, createTicket } = useTickets({ search, status });
   const { unread } = useUnread();
   const onDrag = useDragRegion();
   // Refresh list saat pesan baru masuk di tiket manapun
   useRealtime("__list__");
 
+  // Menu akun bisa memutar ulang tutorial lewat event custom
+  useEffect(() => {
+    const onShow = () => setShowTutorial(true);
+    window.addEventListener("tutorial:show", onShow);
+    // Pet overlay (window terpisah) memicu replay via storage event lintas-window
+    const onStorage = (e: StorageEvent) => {
+      if (e.key === "tutorial:show") setShowTutorial(true);
+    };
+    window.addEventListener("storage", onStorage);
+    return () => {
+      window.removeEventListener("tutorial:show", onShow);
+      window.removeEventListener("storage", onStorage);
+    };
+  }, []);
+
   // Always-on-top toggle
   useEffect(() => {
-    if (typeof window.__TAURI__ === "undefined") return;
+    if (!isTauri()) return;
     import("@tauri-apps/api/window").then(({ getCurrentWindow }) => {
       getCurrentWindow().setAlwaysOnTop(pinned);
     });
@@ -79,6 +102,7 @@ export default function MiniWindow() {
     priority?: string;
     deviceId?: string;
     deviceName?: string;
+    idempotencyKey?: string;
   }) => {
     const ticket = await createTicket.mutateAsync(data);
     setView("list");
@@ -118,6 +142,8 @@ export default function MiniWindow() {
           <button onClick={hideWindow} title="Tutup"><X size={18} /></button>
         </div>
       </header>
+
+      {showTutorial && <Tutorial onClose={() => setShowTutorial(false)} />}
 
       <div className="stats">
         <div className="stat baru"><span className="count">{stats.baru}</span><span className="label">Baru</span></div>

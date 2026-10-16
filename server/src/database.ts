@@ -130,7 +130,15 @@ export async function initDb() {
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
       );
 
+      CREATE TABLE IF NOT EXISTS device_groups (
+        id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+        nama VARCHAR(100) UNIQUE NOT NULL,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      );
+
       CREATE INDEX IF NOT EXISTS idx_hw_events_inventory ON hardware_events(inventory_id, event_date DESC);
+
+      ALTER TABLE tickets ADD COLUMN IF NOT EXISTS lokasi VARCHAR(255);
     `);
     console.log("Database tables created");
   } finally {

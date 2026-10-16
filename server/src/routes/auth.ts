@@ -4,7 +4,9 @@ import { db } from "../database.js";
 
 const authRoutes: FastifyPluginAsync = async (fastify) => {
   // Login
-  fastify.post("/login", async (request, reply) => {
+  fastify.post("/login", {
+    config: { rateLimit: { max: 10, timeWindow: "1 minute" } },
+  }, async (request, reply) => {
     const { username, password } = request.body as { username: string; password: string };
     
     if (!username || !password) {

@@ -3,6 +3,7 @@ import { useState } from "react";
 import api from "../lib/api";
 import { useParams, useNavigate, Link } from "react-router-dom";
 import { ArrowLeft, Trash2, Plus } from "lucide-react";
+import DiskBars from "../components/DiskBars";
 
 const JENIS_LABEL: Record<string, string> = { ganti: "Ganti", upgrade: "Upgrade", perbaikan: "Perbaikan" };
 
@@ -78,17 +79,8 @@ export default function InventoryDetail() {
       </div>
 
       <div className="panel">
-        <div className="panel-head"><h2>Disk</h2></div>
-        <div className="inv-list">
-          {disks.length === 0 && <span className="muted">Belum ada data disk (menunggu report app).</span>}
-          {disks.map((d: any, i: number) => (
-            <div key={i} className="ticket-row" style={{ fontSize: "0.8125rem" }}>
-              <span>{d.name ?? "-"}</span>
-              <span className="badge-active">{(d.tipe || "disk").toUpperCase()}</span>
-              <span>{d.total_gb != null ? `${d.total_gb} GB` : "-"}</span>
-            </div>
-          ))}
-        </div>
+        <div className="panel-head"><h2>Penyimpanan</h2></div>
+        <DiskBars disks={disks} />
       </div>
 
       <div className="panel">

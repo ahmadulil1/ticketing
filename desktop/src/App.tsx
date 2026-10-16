@@ -3,13 +3,15 @@ import { Routes, Route, Navigate } from "react-router-dom";
 import Login from "./components/Login";
 import MiniWindow from "./components/MiniWindow";
 import PetOverlay from "./components/PetOverlay";
+import { tutorialSeen } from "./components/Tutorial";
 import { useTheme } from "./hooks/useTheme";
+import { useAutoUpdate } from "./hooks/useAutoUpdate";
 
 async function getCurrentWindowLabel(): Promise<string | null> {
   // Sinkron dari internals Tauri (tersedia di kedua window)
   const syncLabel = window.__TAURI_INTERNALS__?.metadata?.currentWindow?.label;
   if (syncLabel) return syncLabel;
-  if (typeof window.__TAURI__ === "undefined") return "mini";
+  if (typeof window === "undefined" || !("__TAURI_INTERNALS__" in window || "__TAURI__" in window)) return "mini";
   try {
     const { getCurrentWindow } = await import("@tauri-apps/api/window");
     return getCurrentWindow().label;
@@ -30,6 +32,7 @@ function App() {
   const [label, setLabel] = useState<string | null>(null);
   // Tema diterapkan di semua window (token <html dataset.theme>)
   useTheme();
+  useAutoUpdate();
 
   useEffect(() => {
     // deteksi cepat dari hash (sinkron, mencegah flash PetOverlay di mini window)
@@ -37,7 +40,16 @@ function App() {
       setLabel("pet-overlay");
       return;
     }
-    getCurrentWindowLabel().then(setLabel);
+    getCurrentWindowLabel().then((label) => {
+      setLabel(label);
+      // Install pertama: window mini memulai tersembunyi (pet saja yang tampil).
+      // Saat tutorial belum dilihat, paksa tampil agar user melihat panduannya.
+      if (label === "mini" && !tutorialSeen() && "__TAURI_INTERNALS__" in window) {
+        import("@tauri-apps/api/window")
+          .then(({ getCurrentWindow }) => getCurrentWindow().show())
+          .catch(() => {});
+      }
+    });
     if (window.location.hash !== "#pet-overlay") {
       import("./services/device").then(({ reportSpec }) => reportSpec());
     }

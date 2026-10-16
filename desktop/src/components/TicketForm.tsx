@@ -14,7 +14,7 @@ const PRIORITIES = [
 ];
 
 interface Props {
-  onSubmit: (data: { description: string; priority: string; deviceId: string; deviceName: string }) => Promise<{ id: string }>;
+  onSubmit: (data: { description: string; priority: string; deviceId: string; deviceName: string; idempotencyKey: string }) => Promise<{ id: string }>;
   onCancel: () => void;
 }
 
@@ -93,6 +93,7 @@ export default function TicketForm({ onSubmit, onCancel }: Props) {
         priority,
         deviceId: getDeviceId(),
         deviceName: await getDeviceName(),
+        idempotencyKey: idempotencyRef.current,
       });
       if (files.length > 0 && ticket?.id) {
         const form = new FormData();

@@ -109,7 +109,7 @@ export default function Agents() {
                 <option value="user">User</option>
               </select>
               <button
-                className={u.is_active ? "btn-danger" : "btn-primary"}
+                className={u.is_active ? "btn btn-danger" : "btn btn-primary"}
                 onClick={() => updateUser.mutate({ id: u.id, isActive: !u.is_active })}
               >
                 {u.is_active ? "Nonaktifkan" : "Aktifkan"}

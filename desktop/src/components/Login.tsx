@@ -22,7 +22,7 @@ export default function Login({ onLogin }: Props) {
       onSuccess: (data: any) => {
         // Admin hanya boleh login via web panel
         if (data?.user?.role === "admin") {
-          setError("Admin hanya bisa login melalui web panel. Buka http://192.168.0.100 di browser.");
+          setError("Admin hanya bisa login melalui web panel. Buka https://ticketing.marisoncloud.com di browser.");
           return;
         }
         onLogin();

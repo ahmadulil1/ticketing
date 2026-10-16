@@ -4,6 +4,7 @@ import { useParams, useNavigate } from "react-router-dom";
 import { ArrowLeft } from "lucide-react";
 import { useState } from "react";
 import Pagination from "../components/Pagination";
+import DiskBars from "../components/DiskBars";
 
 const STATUS_LABEL: Record<string, string> = {
   baru: "Diterima", sedang_ditangani: "Sedang Dikerjakan", menunggu_pengguna: "Menunggu",
@@ -53,9 +54,7 @@ export default function DeviceDetail() {
           <div className="stat-card"><span className="count" style={{ fontSize: "0.8125rem", wordBreak: "break-word" }}>{device.spec.cpu_model || "-"}</span><span className="label">CPU</span></div>
           <div className="stat-card"><span className="count" style={{ fontSize: "0.8125rem" }}>{device.spec.ram_gb ? `${device.spec.ram_gb} GB` : "-"}</span><span className="label">RAM</span></div>
           <div className="stat-card"><span className="count" style={{ fontSize: "0.8125rem" }}>{device.spec.os_name || "-"}</span><span className="label">OS</span></div>
-          <div className="stat-card"><span className="count" style={{ fontSize: "0.8125rem" }}>
-            {(device.spec.disks || []).map((d: any) => `${(d.tipe || "disk").toUpperCase()} ${d.total_gb ?? "?"}GB`).join(" · ") || "-"}
-          </span><span className="label">Disk</span></div>
+          <div className="stat-card"><span className="count" style={{ fontSize: "0.8125rem" }}>{device.spec.gpu_model || "-"}</span><span className="label">GPU</span></div>
         </div>
       )}
 
@@ -80,6 +79,11 @@ export default function DeviceDetail() {
           </span>
           <span className="label">Aktivitas Terakhir</span>
         </div>
+      </div>
+
+      <div className="panel">
+        <div className="panel-head"><h2>Penyimpanan</h2></div>
+        <DiskBars disks={device.spec?.disks} />
       </div>
 
       <div className="panel">

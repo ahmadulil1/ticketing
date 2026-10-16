@@ -13,11 +13,49 @@ const mkdir = util.promisify(fs.mkdir);
 
 const ALLOWED_IMAGE = ["image/png", "image/jpeg", "image/jpg", "image/webp", "image/gif", "image/bmp"];
 
-async function saveAttachment(ticketId: string, file: any) {
-  if (!ALLOWED_IMAGE.includes((file.mimetype || "").toLowerCase())) return null;
+// Signature magic bytes: cegah spoofing mimetype (file .txt type=image/png)
+const MAGIC: Array<{ bytes: number[]; label: string }> = [
+  { bytes: [0x89, 0x50, 0x4e, 0x47], label: "PNG" },
+  { bytes: [0xff, 0xd8, 0xff], label: "JPEG" },
+  { bytes: [0x47, 0x49, 0x46, 0x38], label: "GIF" },
+  { bytes: [0x42, 0x4d], label: "BMP" },
+  // WebP: "RIFF....WEBP"
+  { bytes: [0x52, 0x49, 0x46, 0x46], label: "WEBP" },
+];
 
-  const buffer = await file.toBuffer();
-  if (buffer.length > config.storage.maxFileSize) return null;
+function detectImageFormat(buf: Buffer): string | null {
+  for (const m of MAGIC) {
+    if (buf.length >= m.bytes.length && m.bytes.every((b, i) => buf[i] === b)) {
+      if (m.label === "WEBP" && buf.length >= 12) {
+        const webp = buf.slice(8, 12).toString("ascii");
+        return webp === "WEBP" ? "WEBP" : null;
+      }
+      return m.label;
+    }
+  }
+  return null;
+}
+
+async function saveAttachment(ticketId: string, file: any) {
+  // ponytail: lempar error jelas — return null diam-diam bikin frontend mengira sukses (AT-05/06)
+  if (!ALLOWED_IMAGE.includes((file.mimetype || "").toLowerCase())) {
+    throw new Error(`File "${file.filename}" bukan gambar yang diizinkan`);
+  }
+
+  // ponytail: @fastify/multipart v9 saveRequestFiles() menulis ke tmp file lalu
+  // menguras stream — toBuffer() setelahnya kosong. Baca dari file tmp (filepath).
+  const buffer = file.filepath
+    ? fs.readFileSync(file.filepath)
+    : ((file as any)._buf ?? await file.toBuffer());
+  const maxMB = Math.round(config.storage.maxFileSize / (1024 * 1024));
+  if (buffer.length > config.storage.maxFileSize) {
+    throw new Error(`File "${file.filename}" melebihi ${maxMB}MB`);
+  }
+
+  const fmt = detectImageFormat(buffer);
+  if (!fmt) {
+    throw new Error(`File "${file.filename}" rusak atau bukan gambar valid`);
+  }
 
   // Konversi ke WebP (libwebp via sharp)
   const webpBuffer = await sharp(buffer)
@@ -217,11 +255,12 @@ const ticketRoutes: FastifyPluginAsync = async (fastify) => {
   
   // Guest ticket (device identity, tanpa login)
   fastify.post("/guest", async (request, reply) => {
-    const { description, device_id, device_name, priority } = request.body as {
+    const { description, device_id, device_name, priority, lokasi } = request.body as {
       description: string;
       device_id: string;
       device_name?: string;
       priority?: string;
+      lokasi?: string;
     };
 
     if (!device_id || device_id.length < 4) {
@@ -250,10 +289,10 @@ const ticketRoutes: FastifyPluginAsync = async (fastify) => {
     const title = description.trim().slice(0, 60);
 
     const result = await db.query(
-      `INSERT INTO tickets (id, ticket_number, title, description, idempotency_key, device_id, device_name, priority)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+      `INSERT INTO tickets (id, ticket_number, title, description, idempotency_key, device_id, device_name, priority, lokasi)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
        RETURNING *`,
-      [uuidv4(), ticketNumber, title, description, idempotencyKey, device_id, device_name || null, priority || "normal"]
+      [uuidv4(), ticketNumber, title, description, idempotencyKey, device_id, device_name || null, priority || "normal", (lokasi || "").trim() || null]
     );
 
     await db.query(
@@ -292,9 +331,12 @@ const ticketRoutes: FastifyPluginAsync = async (fastify) => {
     }
 
     const attachments = [];
-    for (const file of files) {
-      const att = await saveAttachment(id, file);
-      if (att) attachments.push(att);
+    try {
+      for (const file of files) {
+        attachments.push(await saveAttachment(id, file));
+      }
+    } catch (err: any) {
+      return reply.status(400).send({ error: err.message || "File tidak valid" });
     }
 
     return reply.status(201).send(attachments);
@@ -612,9 +654,12 @@ const ticketRoutes: FastifyPluginAsync = async (fastify) => {
     }
     
     const attachments = [];
-    for (const file of files) {
-      const att = await saveAttachment(id, file);
-      if (att) attachments.push(att);
+    try {
+      for (const file of files) {
+        attachments.push(await saveAttachment(id, file));
+      }
+    } catch (err: any) {
+      return reply.status(400).send({ error: err.message || "File tidak valid" });
     }
     
     return reply.status(201).send(attachments);

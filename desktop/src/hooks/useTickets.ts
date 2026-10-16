@@ -27,13 +27,15 @@ export function useTickets(params?: { search?: string; status?: string }) {
       priority?: string;
       deviceId?: string;
       deviceName?: string;
+      idempotencyKey?: string;
     }) => {
+      const key = ticket.idempotencyKey || crypto.randomUUID();
       if (isAgent()) {
         const res = await api.post("/tickets", {
           title: ticket.description.slice(0, 60),
           description: ticket.description,
           priority: ticket.priority,
-        }, { headers: { "Idempotency-Key": crypto.randomUUID() } });
+        }, { headers: { "Idempotency-Key": key } });
         return res.data as Ticket;
       }
       // Guest: device identity
@@ -42,7 +44,7 @@ export function useTickets(params?: { search?: string; status?: string }) {
         priority: ticket.priority || "normal",
         device_id: ticket.deviceId,
         device_name: ticket.deviceName,
-      }, { headers: { "Idempotency-Key": crypto.randomUUID() } });
+      }, { headers: { "Idempotency-Key": key } });
       return res.data as Ticket;
     },
     onSuccess: () => {
