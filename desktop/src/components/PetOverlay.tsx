@@ -13,6 +13,19 @@ import { useRealtime } from "../hooks/useRealtime";
 import { getDeviceId } from "../services/device";
 import petGif from "../assets/pet.gif";
 
+// Tauri event listener wrapper
+async function tauriListen(event: string, handler: (payload: any) => void) {
+  if (isTauri()) {
+    try {
+      const { listen } = await import("@tauri-apps/api/event");
+      const unlisten = await listen(event, (event: any) => handler(event.payload));
+      return unlisten;
+    } catch (e) {
+      console.error(`[listen ${event}] error:`, e);
+    }
+  }
+}
+
 const isTauri = () =>
   typeof window !== "undefined" &&
   (typeof (window as any).__TAURI_INTERNALS__ !== "undefined" ||
@@ -67,6 +80,8 @@ export default function PetOverlay({ onClick }: Props) {
   const [remotePending, setRemotePending] = useState(false);
 
   const deviceId = getDeviceId();
+  const wsRef = useRef<WebSocket | null>(null);
+  const captureLoopRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   // Jam
   useEffect(() => {
@@ -125,6 +140,7 @@ export default function PetOverlay({ onClick }: Props) {
 
         ws.onopen = () => {
           console.log("[pet-remote] WS connected");
+          wsRef.current = ws;
           // Subscribe ke channel remote untuk device ini (agent mode)
           ws?.send(
             JSON.stringify({
@@ -141,7 +157,6 @@ export default function PetOverlay({ onClick }: Props) {
             const data = JSON.parse(new TextDecoder().decode(ev.data as ArrayBuffer));
             switch (data.type) {
               case "remote_request":
-                // Admin meminta remote: tampilkan popup consent
                 if (data.device_id === deviceId) {
                   setRemoteAgentName(data.agent_name || "Agent");
                   setRemoteSessionId(data.sessionId);
@@ -155,6 +170,16 @@ export default function PetOverlay({ onClick }: Props) {
                   setRemoteSessionId("");
                   setRemoteAgentName("");
                   setRemotePending(false);
+                  if (captureLoopRef.current) {
+                    clearInterval(captureLoopRef.current);
+                    captureLoopRef.current = null;
+                  }
+                }
+                break;
+              case "remote_input":
+                // Input dari web viewer: injeksi ke OS
+                if (data.session_id === remoteSessionId && remoteState === "active") {
+                  tauriInvoke("remote_inject_input", data.input);
                 }
                 break;
               default:
@@ -180,10 +205,65 @@ export default function PetOverlay({ onClick }: Props) {
     };
   }, [deviceId, remoteSessionId]);
 
+  // -------------------------------------------------------------------
+  // Capture loop: saat remote aktif, tangkap layar terus menerus
+  // -------------------------------------------------------------------
+  useEffect(() => {
+    if (remoteState === "active" && remoteSessionId) {
+      captureLoopRef.current = setInterval(async () => {
+        try {
+          await tauriInvoke("remote_capture_and_send", {
+            session_id: remoteSessionId,
+          });
+        } catch (e) {
+          console.error("[pet] capture error:", e);
+        }
+      }, 500); // ~2 FPS
+      return () => {
+        if (captureLoopRef.current) {
+          clearInterval(captureLoopRef.current);
+          captureLoopRef.current = null;
+        }
+      };
+    } else {
+      if (captureLoopRef.current) {
+        clearInterval(captureLoopRef.current);
+        captureLoopRef.current = null;
+      }
+    }
+  }, [remoteState, remoteSessionId]);
+
+  // -------------------------------------------------------------------
+  // Listener Tauri event `remote-frame`: terima frame dari Rust, kirim via WS
+  // -------------------------------------------------------------------
+  useEffect(() => {
+    let unlisten: (() => void) | undefined = undefined;
+    const start = async () => {
+      unlisten = await tauriListen("remote-frame", (payload: any) => {
+        if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
+          wsRef.current.send(
+            JSON.stringify({
+              type: "remote_frame",
+              session_id: payload.session_id,
+              data: payload.data,
+              format: payload.format,
+            })
+          );
+        }
+      });
+    };
+    start();
+    return () => {
+      if (unlisten) unlisten();
+    };
+  }, [remoteSessionId]);
+
   const handleAcceptRemote = async () => {
     try {
       await tauriInvoke("remote_respond", {
         session_id: remoteSessionId,
+        device_id: deviceId,
+        agent_name: remoteAgentName || "Agent",
         accept: true,
       });
       setRemoteState("active");

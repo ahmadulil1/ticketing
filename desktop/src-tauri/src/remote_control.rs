@@ -9,7 +9,102 @@ macro_rules! log_info {
 }
 
 // ---------------------------------------------------------------------------
-// Signaling message (dikirim melalui WebSocket /ws channel `remote:{deviceId}`)
+// State: manajemen sesi remote yang aktif di agent (desktop)
+// ---------------------------------------------------------------------------
+
+pub struct RemoteSession {
+    pub session_id: String,
+    pub device_id: String,
+    pub agent_name: String,
+}
+
+pub struct RemoteControlState {
+    pub(crate) sessions: Mutex<HashMap<String, RemoteSession>>,
+}
+
+impl RemoteControlState {
+    pub fn new() -> Self {
+        Self {
+            sessions: Mutex::new(HashMap::new()),
+        }
+    }
+
+    pub fn has_session(&self, session_id: &str) -> bool {
+        self.sessions.lock().unwrap().contains_key(session_id)
+    }
+}
+
+// ---------------------------------------------------------------------------
+// Tauri Commands
+// ---------------------------------------------------------------------------
+
+/// Dipanggil oleh frontend saat menerima permintaan remote dari admin.
+/// Menerima atau menolak. Saat diterima, session ditambahkan ke state lokal.
+#[tauri::command]
+pub async fn remote_respond(
+    app: AppHandle,
+    state: State<'_, RemoteControlState>,
+    session_id: String,
+    device_id: String,
+    agent_name: String,
+    accept: bool,
+) -> Result<(), String> {
+    let mut sessions = state.sessions.lock().unwrap();
+    if accept {
+        sessions.insert(
+            session_id.clone(),
+            RemoteSession {
+                session_id: session_id.clone(),
+                device_id,
+                agent_name,
+            },
+        );
+        log_info!("session {} diterima dan diaktifkan", session_id);
+    } else {
+        sessions.remove(&session_id);
+        log_info!("session {} ditolak", session_id);
+    }
+    drop(sessions);
+    let _ = app.emit("remote-session-changed", json!({
+        "session_id": session_id,
+        "status": if accept { "active" } else { "rejected" },
+    }));
+    Ok(())
+}
+
+/// Agent mengakhiri sesi remote
+#[tauri::command]
+pub async fn remote_end_session(
+    app: AppHandle,
+    state: State<'_, RemoteControlState>,
+    session_id: String,
+) -> Result<(), String> {
+    let mut sessions = state.sessions.lock().unwrap();
+    if sessions.remove(&session_id).is_some() {
+        log_info!("session {} diakhiri", session_id);
+        drop(sessions);
+        let _ = app.emit("remote-session-changed", json!({
+            "session_id": session_id,
+            "status": "ended",
+        }));
+        Ok(())
+    } else {
+        Err(format!("Session {} tidak ditemukan", session_id))
+    }
+}
+
+/// Cek apakah session masih aktif (digunakan sebelum capture/inject)
+#[tauri::command]
+pub async fn remote_is_active(
+    state: State<'_, RemoteControlState>,
+    session_id: String,
+) -> Result<bool, String> {
+    let sessions = state.sessions.lock().unwrap();
+    Ok(sessions.contains_key(&session_id))
+}
+
+// ---------------------------------------------------------------------------
+// Placeholder WebRTC signal handler (untuk keperluan P2P di masa depan)
 // ---------------------------------------------------------------------------
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -27,85 +122,10 @@ pub enum RemoteSignal {
     Pong,
 }
 
-// ---------------------------------------------------------------------------
-// State: manajemen sesi remote yang sedang berjalan di agent
-// ---------------------------------------------------------------------------
-
-pub struct RemoteSession {
-    pub session_id: String,
-    pub device_id: String,
-    pub agent_name: String,
-}
-
-pub struct RemoteControlState {
-    sessions: Mutex<HashMap<String, RemoteSession>>,
-}
-
-impl RemoteControlState {
-    pub fn new() -> Self {
-        Self {
-            sessions: Mutex::new(HashMap::new()),
-        }
-    }
-}
-
-// ---------------------------------------------------------------------------
-// Tauri Commands
-// ---------------------------------------------------------------------------
-
-/// Dipanggil oleh frontend saat menerima permintaan remote dari admin.
-/// Menerima atau menolak.
-#[tauri::command]
-pub async fn remote_respond(
-    app: AppHandle,
-    state: State<'_, RemoteControlState>,
-    session_id: String,
-    accept: bool,
-) -> Result<(), String> {
-    let mut sessions = state.sessions.lock().unwrap();
-    if let Some(_session) = sessions.get_mut(&session_id) {
-        if accept {
-            log_info!("session {} diterima oleh user", session_id);
-        } else {
-            log_info!("session {} ditolak oleh user", session_id);
-            sessions.remove(&session_id);
-        }
-        let _ = app.emit("remote-session-changed", json!({
-            "session_id": session_id,
-            "status": if accept { "active" } else { "rejected" },
-        }));
-        Ok(())
-    } else {
-        Err(format!("Session {} tidak ditemukan", session_id))
-    }
-}
-
-/// Agent mengakhiri sesi remote
-#[tauri::command]
-pub async fn remote_end_session(
-    app: AppHandle,
-    state: State<'_, RemoteControlState>,
-    session_id: String,
-) -> Result<(), String> {
-    let mut sessions = state.sessions.lock().unwrap();
-    if sessions.remove(&session_id).is_some() {
-        log_info!("session {} diakhiri", session_id);
-        let _ = app.emit("remote-session-changed", json!({
-            "session_id": session_id,
-            "status": "ended",
-        }));
-        Ok(())
-    } else {
-        Err(format!("Session {} tidak ditemukan", session_id))
-    }
-}
-
-/// Dipanggil oleh listener WS saat menerima sinyal remote untuk device ini
 pub fn handle_remote_signal(
     _state: State<'_, RemoteControlState>,
     _device_id: String,
     _signal: RemoteSignal,
 ) -> Result<(), String> {
-    // WebRTC signaling akan diimplementasikan saat crate WebRTC tersedia
     Ok(())
 }

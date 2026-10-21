@@ -6,6 +6,8 @@ mod notifications;
 mod auto_start;
 mod bg_sample;
 mod remote_control;
+mod remote_stream;
+mod remote_input;
 
 use std::sync::{Mutex, OnceLock};
 use tauri::{Listener, Manager};
@@ -99,6 +101,9 @@ pub fn run() {
             log_update_error,
             remote_control::remote_respond,
             remote_control::remote_end_session,
+            remote_control::remote_is_active,
+            remote_stream::remote_capture_and_send,
+            remote_input::remote_inject_input,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
