@@ -12,7 +12,27 @@ build (Windows)  ->  upload (GitHub Release)  ->  manifest (server)  ->  user up
 
 ## 1. Build
 
-### Opsi A — di mesin Windows (paling praktis)
+### Opsi A — dari macOS (cross-compile, cepat, tanpa perlu mesin Windows)
+
+```bash
+scripts/build-windows-mac.sh --config src-tauri/tauri.noupdate.conf.json
+```
+
+Butuh (sekali saja):
+
+```bash
+brew install nsis lld llvm
+rustup target add x86_64-pc-windows-msvc
+cargo install cargo-xwin
+```
+
+Hasilnya installer NSIS Windows, sama persis dengan yang|Windows buat.
+Syaratnya tetap ada signing key, kalau tidak build-nya tanpa `.sig`.
+
+> `cargo check` polos untuk Windows **wajib** sebelum build — itu yang menangkap
+> masalah crate/fitur khusus macOS (mis. `core-graphics`) yang cuma muncul di Windows.
+
+### Opsi B — di mesin Windows (paling praktis, ada key-nya di sana)
 
 ```powershell
 git fetch origin
