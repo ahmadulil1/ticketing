@@ -32,17 +32,11 @@ export default function DeviceDetail() {
     },
   });
 
-  if (isLoading) return <div className="loading">Memuat...</div>;
-  if (!device) return <div className="loading">Device tidak ditemukan</div>;
-
-  const PER = 10;
-  const all = device.tickets || [];
-  const totalPages = Math.max(1, Math.ceil(all.length / PER));
-  const cur = Math.min(page, totalPages);
-  const tickets = all.slice((cur - 1) * PER, cur * PER);
-
   // -------------------------------------------------------------------
   // WebSocket viewer: terima frame + kirim input ke desktop
+  // ponytail: semua hook WAJIB di atas early return. Hook setelah
+  // `if (isLoading) return`.reactive urutan hook berubah antar render ->
+  // React error #310 (halaman kosong).
   // -------------------------------------------------------------------
   useEffect(() => {
     let ws: WebSocket | null = null;
@@ -189,6 +183,16 @@ export default function DeviceDetail() {
       setRemoteLoading(false);
     }
   };
+
+  // Early return SETELAH semua hook di atas
+  if (isLoading) return <div className="loading">Memuat...</div>;
+  if (!device) return <div className="loading">Device tidak ditemukan</div>;
+
+  const PER = 10;
+  const all = device.tickets || [];
+  const totalPages = Math.max(1, Math.ceil(all.length / PER));
+  const cur = Math.min(page, totalPages);
+  const tickets = all.slice((cur - 1) * PER, cur * PER);
 
   return (
     <div className="page">
