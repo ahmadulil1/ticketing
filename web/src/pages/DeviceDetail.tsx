@@ -1,10 +1,11 @@
 import { useQuery } from "@tanstack/react-query";
-import { useEffect, useRef, useState, useCallback } from "react";
+import { useState } from "react";
 import api from "../lib/api";
 import { useParams, useNavigate } from "react-router-dom";
-import { ArrowLeft, Video, StopCircle, X } from "lucide-react";
+import { ArrowLeft } from "lucide-react";
 import Pagination from "../components/Pagination";
 import DiskBars from "../components/DiskBars";
+import RemoteControl from "../components/RemoteControl";
 
 const STATUS_LABEL: Record<string, string> = {
   baru: "Diterima", sedang_ditangani: "Sedang Dikerjakan", menunggu_pengguna: "Menunggu",
@@ -24,14 +25,6 @@ export default function DeviceDetail() {
   const { deviceId } = useParams<{ deviceId: string }>();
   const navigate = useNavigate();
   const [page, setPage] = useState(1);
-  const [remoteSession, setRemoteSession] = useState<{ id: string; status: string } | null>(null);
-  const [remoteViewerOpen, setRemoteViewerOpen] = useState(false);
-  const [remoteLoading, setRemoteLoading] = useState(false);
-  // Viewer state
-  const [frameData, setFrameData] = useState<string | null>(null);
-  const [viewerConnected, setViewerConnected] = useState(false);
-  const [sessionEnded, setSessionEnded] = useState(false);
-  const wsRef = useRef<WebSocket | null>(null);
 
   const { data: device, isLoading } = useQuery({
     queryKey: ["device", deviceId],
@@ -58,186 +51,6 @@ export default function DeviceDetail() {
     refetchInterval: 15000,
   });
 
-  // -------------------------------------------------------------------
-  // WebSocket viewer: terima frame + kirim input ke desktop
-  // ponytail: semua hook WAJIB di atas early return. Hook setelah
-  // `if (isLoading) return`.reactive urutan hook berubah antar render ->
-  // React error #310 (halaman kosong).
-  // -------------------------------------------------------------------
-  useEffect(() => {
-    let ws: WebSocket | null = null;
-    let alive = true;
-
-    const connect = async () => {
-      const wsUrl =
-        (import.meta.env.VITE_WS_URL as string | undefined) ||
-        (import.meta.env.VITE_API_URL as string | undefined)
-          ?.replace(/^http/, "ws")
-          .replace(/\/api$/, "") ||
-        "ws://localhost";
-      const url = `${wsUrl}/ws`;
-      try {
-        ws = new WebSocket(url);
-        ws.binaryType = "arraybuffer";
-
-        ws.onopen = () => {
-          console.log("[remote-viewer] WS connected");
-          setViewerConnected(true);
-          wsRef.current = ws;
-          ws.send(
-            JSON.stringify({
-              type: "subscribe-remote",
-              deviceId,
-              token: localStorage.getItem("token"),
-              isAgent: true,
-            })
-          );
-        };
-
-        ws.onmessage = (ev) => {
-          if (!alive) return;
-          try {
-            // Frame TEXT = string, BINARY = ArrayBuffer. Jangan paksa decode.
-            const raw =
-              typeof ev.data === "string"
-                ? ev.data
-                : new TextDecoder().decode(ev.data as ArrayBuffer);
-            const data = JSON.parse(raw);
-            if (data.type === "remote_frame" && data.session_id === remoteSession?.id) {
-              const mime = data.format === "jpeg" ? "image/jpeg" : "image/png";
-              setFrameData(`data:${mime};base64,${data.data}`);
-              setSessionEnded(false);
-            }
-            // Sesi diakhiri (admin/klien/timeout) — jangan tampilkan frame beku
-            if (data.type === "remote_ended" && data.sessionId === remoteSession?.id) {
-              setSessionEnded(true);
-              setRemoteSession((s) => (s ? { ...s, status: "ended" } : s));
-            }
-          } catch {}
-        };
-
-        ws.onclose = () => {
-          setViewerConnected(false);
-          wsRef.current = null;
-          if (alive) setTimeout(connect, 3000);
-        };
-      } catch {
-        setViewerConnected(false);
-        if (alive) setTimeout(connect, 3000);
-      }
-    };
-
-    if (remoteViewerOpen && remoteSession) {
-      connect();
-    }
-    return () => {
-      alive = false;
-      if (ws) ws.close();
-    };
-  }, [remoteViewerOpen, remoteSession, deviceId]);
-
-  // Kirim input ke desktop via WS
-  const sendInput = useCallback(
-    (input: any) => {
-      if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN && remoteSession) {
-        wsRef.current.send(
-          JSON.stringify({
-            type: "remote_input",
-            session_id: remoteSession.id,
-            input,
-          })
-        );
-      }
-    },
-    [remoteSession]
-  );
-
-  // Koordinat ternormalisasi (0..1) relatif area gambar, supaya viewer
-  // tak perlu tahu ukuran layar asli (frame yg dikirim sudah di-downscale).
-  const toNorm = (e: React.MouseEvent) => {
-    const rect = e.currentTarget.getBoundingClientRect();
-    const x = rect.width > 0 ? (e.clientX - rect.left) / rect.width : 0;
-    const y = rect.height > 0 ? (e.clientY - rect.top) / rect.height : 0;
-    return { x, y };
-  };
-
-  // Mouse move handler
-  const handleMouseMove = useCallback(
-    (e: React.MouseEvent) => {
-      const { x, y } = toNorm(e);
-      sendInput({ type: "MouseMove", x, y, norm: true });
-    },
-    [sendInput]
-  );
-
-  const handleMouseDown = useCallback(
-    (e: React.MouseEvent) => {
-      const { x, y } = toNorm(e);
-      sendInput({ type: "MouseDown", button: e.button === 2 ? "right" : "left", x, y, norm: true });
-      e.preventDefault();
-    },
-    [sendInput]
-  );
-
-  const handleMouseUp = useCallback(
-    (e: React.MouseEvent) => {
-      const { x, y } = toNorm(e);
-      sendInput({ type: "MouseUp", button: e.button === 2 ? "right" : "left", x, y, norm: true });
-    },
-    [sendInput]
-  );
-
-  const handleKeyDown = useCallback(
-    (e: React.KeyboardEvent) => {
-      // Cegah shortcut browser (Cmd+W, Cmd+T, ...) supaya tak buka tab baru
-      e.preventDefault();
-      e.stopPropagation();
-      sendInput({
-        type: "KeyDown",
-        key: e.key,
-        shift: e.shiftKey,
-        ctrl: e.ctrlKey,
-        alt: e.altKey,
-        meta: e.metaKey,
-      });
-    },
-    [sendInput]
-  );
-
-  const handleKeyUp = useCallback(
-    (e: React.KeyboardEvent) => {
-      e.preventDefault();
-      e.stopPropagation();
-      sendInput({
-        type: "KeyUp",
-        key: e.key,
-        shift: e.shiftKey,
-        ctrl: e.ctrlKey,
-        alt: e.altKey,
-        meta: e.metaKey,
-      });
-    },
-    [sendInput]
-  );
-
-  const createRemoteSession = async () => {
-    setRemoteLoading(true);
-    try {
-      const res = await api.post("/remote/", {
-        device_id: deviceId,
-        agent_name: "Admin",
-      });
-      setRemoteSession({ id: res.data.id, status: res.data.status });
-      setSessionEnded(false);
-      setFrameData(null);
-    } catch (e: any) {
-      alert(e.response?.data?.error || "Gagal membuat sesi remote");
-    } finally {
-      setRemoteLoading(false);
-    }
-  };
-
-  // Early return SETELAH semua hook di atas
   if (isLoading) return <div className="loading">Memuat...</div>;
   if (!device) return <div className="loading">Device tidak ditemukan</div>;
 
@@ -246,10 +59,6 @@ export default function DeviceDetail() {
   const totalPages = Math.max(1, Math.ceil(all.length / PER));
   const cur = Math.min(page, totalPages);
   const tickets = all.slice((cur - 1) * PER, cur * PER);
-
-  // Remote desktop (capture + kontrol) baru diimplementasi untuk macOS.
-  const osName = (device.spec?.os_name || "").toLowerCase();
-  const remoteSupported = !osName || osName.includes("darwin") || osName.includes("mac");
 
   return (
     <div className="page">
@@ -263,47 +72,11 @@ export default function DeviceDetail() {
             Inv. {device.inventory.no_inventaris}
           </button>
         )}
-        {!remoteSession && (
-          <button
-            className="btn btn-outline"
-            onClick={createRemoteSession}
-            disabled={remoteLoading || !remoteSupported}
-            title={
-              remoteSupported
-                ? "Kontrol layar PC ini dari web admin"
-                : "Remote desktop baru tersedia untuk PC macOS"
-            }
-          >
-            {remoteLoading ? (
-              "Membuat sesi..."
-            ) : (
-              <>
-                <Video size={16} /> Remote Desktop
-                {!remoteSupported && " (macOS saja)"}
-              </>
-            )}
-          </button>
-        )}
-        {remoteSession && remoteSession.status !== "ended" && (
-          <button
-            className="btn btn-outline"
-            onClick={() => setRemoteViewerOpen(true)}
-          >
-            <Video size={16} /> Buka Viewer
-          </button>
-        )}
-        {remoteSession && remoteSession.status === "ended" && (
-          <button
-            className="btn btn-outline"
-            onClick={() => {
-              setRemoteSession(null);
-              setSessionEnded(false);
-              setFrameData(null);
-            }}
-          >
-            <Video size={16} /> Remote Desktop (sesi baru)
-          </button>
-        )}
+        <RemoteControl
+          deviceId={device.device_id}
+          deviceName={device.device_name || device.device_id}
+          osName={device.spec?.os_name}
+        />
       </div>
 
       {device.spec && (
@@ -401,74 +174,6 @@ export default function DeviceDetail() {
           onChange={setPage}
         />
       </div>
-
-      {/* Remote Desktop Viewer Dialog */}
-      {remoteViewerOpen && remoteSession && (
-        <div className="remote-viewer-overlay">
-          <div className="remote-viewer-panel">
-            <div className="remote-viewer-head">
-              <h2>Remote: {device.device_name || device.device_id}</h2>
-              <div className="remote-viewer-status">
-                {viewerConnected ? "● Terhubung" : "○ Menyambung..."}
-              </div>
-              <button className="btn btn-outline" onClick={() => setRemoteViewerOpen(false)}>
-                <X size={16} /> Tutup
-              </button>
-            </div>
-            <div className="remote-viewer-body">
-              {sessionEnded ? (
-                <div className="remote-screen-placeholder">
-                  <StopCircle size={56} className="remote-screen-icon" />
-                  <p>Sesi remote sudah berakhir</p>
-                  <p className="muted" style={{ fontSize: "0.8125rem" }}>
-                    Diakhiri oleh admin, pengguna, atau kedaluwarsa (30 menit idle).
-                  </p>
-                </div>
-              ) : frameData ? (
-                <img
-                  src={frameData}
-                  alt="Remote screen"
-                  className="remote-screen"
-                  onMouseMove={handleMouseMove}
-                  onMouseDown={handleMouseDown}
-                  onMouseUp={handleMouseUp}
-                  onKeyDown={handleKeyDown}
-                  onKeyUp={handleKeyUp}
-                  onContextMenu={(e) => e.preventDefault()}
-                  tabIndex={0}
-                  autoFocus
-                />
-              ) : (
-                <div className="remote-screen-placeholder">
-                  <Video size={64} className="remote-screen-icon" />
-                  <p>Menunggu layar klien...</p>
-                  <p className="muted" style={{ fontSize: "0.8125rem" }}>
-                    Klik layar untuk fokus, lalu gerakkan mouse / ketik.
-                  </p>
-                  <p className="muted" style={{ fontSize: "0.8125rem" }}>
-                    Sesi ID: {remoteSession.id} · Status: {remoteSession.status}
-                  </p>
-                </div>
-              )}
-            </div>
-            <div className="remote-viewer-controls">
-              <button
-                className="btn btn-destructive"
-                onClick={async () => {
-                  try {
-                    await api.delete(`/remote/${remoteSession.id}`);
-                    setRemoteViewerOpen(false);
-                    setRemoteSession(null);
-                    setFrameData(null);
-                  } catch {}
-                }}
-              >
-                <StopCircle size={16} /> Akhiri Sesi Remote
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   );
 }

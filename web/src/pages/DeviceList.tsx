@@ -4,6 +4,7 @@ import { Monitor } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { useState } from "react";
 import Pagination from "../components/Pagination";
+import RemoteControl from "../components/RemoteControl";
 
 const PER = 10;
 
@@ -37,29 +38,39 @@ export default function DeviceList() {
         <>
           <div className="device-grid wide">
             {shown.map((d) => (
-              <button
-                key={d.device_id}
-                className="device-card"
-                onClick={() => navigate(`/devices/${d.device_id}`)}
-              >
-                <span className="device-icon"><Monitor size={18} /></span>
-                <span className="device-name">{d.device_name || d.device_id}</span>
-                <span className="device-sub">
-                  {parseInt(d.ticket_count)} tiket total
-                </span>
-                <span className="device-meta">
-                  {parseInt(d.active_count) > 0 ? (
-                    <span className="badge-active">{d.active_count} tiket aktif</span>
-                  ) : (
-                    <span className="badge-done">Semua selesai</span>
-                  )}
-                </span>
-                {d.last_activity && (
-                  <span className="device-date">
-                    Aktif terakhir {new Date(d.last_activity).toLocaleDateString("id-ID")}
+              // ponytail: kartu = container. Tombol navigasi & tombol remote
+              // adalah dua button terpisah (tak boleh button di dalam button —
+              // HTML invalid + aksesibilitas kacau).
+              <div key={d.device_id} className="device-card">
+                <button
+                  className="device-card-main"
+                  onClick={() => navigate(`/devices/${d.device_id}`)}
+                >
+                  <span className="device-icon"><Monitor size={18} /></span>
+                  <span className="device-name">{d.device_name || d.device_id}</span>
+                  <span className="device-sub">
+                    {parseInt(d.ticket_count)} tiket total
                   </span>
-                )}
-              </button>
+                  <span className="device-meta">
+                    {parseInt(d.active_count) > 0 ? (
+                      <span className="badge-active">{d.active_count} tiket aktif</span>
+                    ) : (
+                      <span className="badge-done">Semua selesai</span>
+                    )}
+                  </span>
+                  {d.last_activity && (
+                    <span className="device-date">
+                      Aktif terakhir {new Date(d.last_activity).toLocaleDateString("id-ID")}
+                    </span>
+                  )}
+                </button>
+                <RemoteControl
+                  deviceId={d.device_id}
+                  deviceName={d.device_name || d.device_id}
+                  osName={d.os_name}
+                  variant="icon"
+                />
+              </div>
             ))}
             {all.length === 0 && (
               <div className="empty">Belum ada device terdaftar.</div>

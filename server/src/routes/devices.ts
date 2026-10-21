@@ -89,6 +89,7 @@ const deviceRoutes: FastifyPluginAsync = async (fastify) => {
       `SELECT
          COALESCE(s.device_id, t.device_id) AS device_id,
          COALESCE(MAX(t.device_name), s.hostname, COALESCE(s.device_id, t.device_id)) AS device_name,
+         MAX(s.os_name) AS os_name,
          COUNT(t.id) AS ticket_count,
          COUNT(t.id) FILTER (WHERE t.status NOT IN ('selesai', 'ditutup')) AS active_count,
          COUNT(t.id) FILTER (WHERE t.status = 'baru') AS baru_count,
