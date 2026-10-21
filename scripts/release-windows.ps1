@@ -15,6 +15,10 @@
   Path ke private key Tauri (kalau tidak di-set, pakai env TAURI_SIGNING_PRIVATE_KEY
   atau file .key di %USERPROFILE%\.tauri\)
 
+.PARAMETER AllowUnsigned
+  Izin build tanpa signing key. Hasilnya TIDAK punya .sig, jadi tidak bisa
+  dipakai untuk auto-update. Hanya untuk tes lokal.
+
 .EXAMPLE
   powershell -ExecutionPolicy Bypass -File scripts\release-windows.ps1 -Version 1.1.0
 #>
@@ -22,7 +26,8 @@ param(
   [Parameter(Mandatory = $true)][string]$Version,
   [string]$Repo = "ahmadulil1/ticketing",
   [string]$Key = "",
-  [string]$Notes = ""
+  [string]$Notes = "",
+  [switch]$AllowUnsigned
 )
 
 $ErrorActionPreference = "Stop"
@@ -54,13 +59,32 @@ if ($Key) {
   Say "Signing key: $Key"
   $env:TAURI_SIGNING_PRIVATE_KEY = (Get-Content -Raw $Key)
   if (-not $env:TAURI_SIGNING_PRIVATE_KEY_PASSWORD) {
-    $env:TAURI_SIGNING_PRIVATE_KEY_PASSWORD = ""
-    Say "Password key kosong (kalau key punya password, set TAURI_SIGNING_PRIVATE_KEY_PASSWORD)"
+    # Key bisa punya password. Tanya, jangan asal kosongkan — build signing
+    # akan gagal kalau passwordnya salah.
+    $pw = Read-Host "Password signing key (tekan Enter kalau key tak ada password)"
+    $env:TAURI_SIGNING_PRIVATE_KEY_PASSWORD = $pw
+    if ([string]::IsNullOrEmpty($pw)) {
+      Say "Password dikosongkan."
+    } else {
+      Say "Password diterima."
+    }
+  } else {
+    Say "Password dari env TAURI_SIGNING_PRIVATE_KEY_PASSWORD."
   }
+} elseif ($AllowUnsigned) {
+  Write-Warning "TIDAK ADA signing key. Build TANPA signature (-AllowUnsigned)."
+  Write-Warning "Rilis tanpa .sig = user 1.0.7 tidak bisa auto-update."
 } else {
-  Write-Warning "TIDAK ADA signing key. Build tetap jalan, tapi TIDAK menghasilkan .sig"
-  Write-Warning "Rilis tanpa .sig = user tidak bisa auto-update. Lanjut? (Ctrl+C untuk batal)"
-  $null = Read-Host "Ketik 'ya' untuk lanjut"
+  Write-Warning "TIDAK ADA signing key. Rilis tanpa .sig tidak berguna untuk auto-update."
+  Write-Warning ""
+  Write-Warning "Cari key lama di: %USERPROFILE%\.tauri\*.key"
+  Write-Warning "Kalau memang hilang, buat key baru:"
+  Write-Warning "  cd desktop; npm run tauri signer generate -w \$env:USERPROFILE\.tauri\ticketing.key -p <password>"
+  Write-Warning "Lalu ganti \"pubkey\" di desktop\src-tauri\tauri.conf.json dengan public key baru."
+  Write-Warning "CATATAN: key baru = user 1.0.7 harus install manual sekali."
+  Write-Warning ""
+  $ans = Read-Host "Lanjut tanpa signature? ketik 'ya' (atau -AllowUnsigned)"
+  if ($ans -ne "ya") { throw "Dibatalkan: signing key tidak ada." }
 }
 
 # ------------------------------------------------------------------- build
@@ -81,10 +105,12 @@ if (-not $exe) { throw "Tidak ada .exe hasil build di $nsis" }
 $sig = "$($exe.FullName).sig"
 
 Say "Installer: $($exe.Name)"
-if (Test-Path $sig) {
+$hasSig = Test-Path $sig
+if ($hasSig) {
   Say "Signature : $(Split-Path $sig -Leaf)"
 } else {
-  Write-Warning "Tidak ada .sig — updater tidak akan bisa memverifikasi rilis ini."
+  Write-Warning "TIDAK ADA .sig — updater akan MENOLAK rilis ini."
+  Write-Warning "Jangan lanjut ke update manifest di server tanpa signature."
 }
 
 # ------------------------------------------------------------- upload GitHub
@@ -106,6 +132,11 @@ if (Get-Command gh -ErrorAction SilentlyContinue) {
 }
 
 Say "Langkah berikutnya (di server):"
-Write-Host "  node scripts/release.cjs --version $Version --from-github"
-Write-Host ""
-Write-Host "Lalu cek: https://ticketing.marisoncloud.com/downloads/latest.json"
+if ($hasSig) {
+  Write-Host "  node scripts/release.cjs --version $Version --from-github"
+  Write-Host ""
+  Write-Host "Lalu cek: https://ticketing.marisoncloud.com/downloads/latest.json"
+} else {
+  Write-Host "  BELUM BOLEH update manifest — .sig tidak ada."
+  Write-Host "  Rilis tanpa signature = user 1.0.7 tidak bisa auto-update."
+}
