@@ -5,8 +5,8 @@
  * Jalankan DI SERVER (atau dari mana saja yang punya akses tulis ke
  * folder downloads):
  *
- *   node scripts/release.js --version 1.1.0 --exe /tmp/Ticketing_1.1.0_x64-setup.exe
- *   node scripts/release.js --version 1.1.0 --from-github --notes "Remote desktop"
+ *   node scripts/release.cjs --version 1.1.0 --exe /tmp/Ticketing_1.1.0_x64-setup.exe
+ *   node scripts/release.cjs --version 1.1.0 --from-github --notes "Remote desktop"
  *
  * Opsi:
  *   --version <v>       versi rilis (wajib). Mis. 1.1.0

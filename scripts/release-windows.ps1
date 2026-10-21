@@ -6,7 +6,7 @@
   Menjalankan build Tauri (wajib pakai signing key supaya updater bisa
   verifikasi), lalu meng-upload .exe + .sig ke GitHub Release.
   Setelah itu, jalankan di server:
-      node scripts/release.js --version <versi> --from-github
+      node scripts/release.cjs --version <versi> --from-github
 
 .PARAMETER Version
   Versi rilis, mis. 1.1.0
@@ -106,6 +106,6 @@ if (Get-Command gh -ErrorAction SilentlyContinue) {
 }
 
 Say "Langkah berikutnya (di server):"
-Write-Host "  node scripts/release.js --version $Version --from-github"
+Write-Host "  node scripts/release.cjs --version $Version --from-github"
 Write-Host ""
 Write-Host "Lalu cek: https://ticketing.marisoncloud.com/downloads/latest.json"

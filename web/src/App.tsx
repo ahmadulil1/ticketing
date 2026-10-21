@@ -4,6 +4,7 @@ import { LayoutDashboard, Monitor, Users, BarChart3, LogOut, Menu, X, Sun, Moon,
 import { useEffect, useState } from "react";
 import api from "./lib/api";
 import { useTheme } from "./hooks/useTheme";
+import DownloadMenu from "./components/DownloadMenu";
 import Login from "./pages/Login";
 import Dashboard from "./pages/Dashboard";
 import TicketDetail from "./pages/TicketDetail";
@@ -102,6 +103,7 @@ function TopBar() {
             </span>
           )}
           <TopBarTheme />
+          <DownloadMenu />
           <button
             className="icon-btn"
             onClick={() => {
