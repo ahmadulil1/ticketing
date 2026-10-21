@@ -89,6 +89,22 @@ const STEPS: Step[] = [
       "Tiket yang sudah selesai dapat dibuka kembali sampai pukul 17:00 di hari yang sama.",
     ],
   },
+  {
+    img: petImg,
+    alt: "Pet overlay menunjukkan status remote desktop aktif",
+    title: "Remote Desktop (Kontrol Jarak Jauh)",
+    markers: [
+      { x: 50, y: 50, label: "🔴 Bar merah: sedang di-remote oleh IT" },
+      { x: 85, y: 50, label: "Tombol Hentikan untuk mengakhiri sesi" },
+    ],
+    tips: [
+      "Petugas IT dapat meminta mengontrol komputer Anda untuk membantu memperbaiki masalah.",
+      "Akan muncul popup permintaan — klik 'Izinkan' untuk setuju, atau 'Tolak' untuk menolak.",
+      "Saat remote aktif, bar merah muncul di atas pet dengan nama petugas dan tombol 'Hentikan'.",
+      "Anda tetap mengontrol komputer: bisa mencabut izin kapan saja via tombol Hentikan di pet.",
+      "Sesi remote otomatis berakhir setelah 30 menit tanpa aktivitas.",
+    ],
+  },
 ];
 
 interface Props {

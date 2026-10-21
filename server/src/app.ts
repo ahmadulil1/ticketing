@@ -16,6 +16,7 @@ import userRoutes from "./routes/users.js";
 import deviceRoutes from "./routes/devices.js";
 import inventoryRoutes from "./routes/inventory.js";
 import groupRoutes from "./routes/groups.js";
+import remoteRoutes from "./routes/remote.js";
 
 export async function buildApp() {
   const fastify = Fastify({
@@ -77,8 +78,9 @@ export async function buildApp() {
   await fastify.register(deviceRoutes, { prefix: "/api/devices" });
   await fastify.register(inventoryRoutes, { prefix: "/api/inventories" });
   await fastify.register(groupRoutes, { prefix: "/api/device-groups" });
+  await fastify.register(remoteRoutes, { prefix: "/api/remote" });
 
-  // WebSocket for real-time chat
+  // WebSocket for real-time chat + remote desktop signaling
   fastify.register(async function (fastify) {
     // Client registry: WS bridge butuh akses ke socket subscriptions.
     // fastify.websocketServer di plugin ini tak reliable, jadi simpan manual.
@@ -86,39 +88,59 @@ export async function buildApp() {
 
     subClient.on("pmessage", (pattern, channel, payload) => {
       try {
-        const m = channel.match(/^ticket:(.+?)(?::user:(.+))?$/);
-        if (!m) return;
-        const ticketId = m[1];
-        const deviceId = m[2] || null;
-        const data = JSON.parse(payload);
-        const targets = subs.get(ticketId);
-        let sent = 0;
-        if (targets) {
-          for (const socket of targets) {
-            if (socket.readyState === 1) {
-              socket.send(JSON.stringify({ ...data, ticketId, deviceId }));
-              sent++;
-            }
-          }
-        }
-        // __list__ mode: refresh daftar tiket + badge unread + typing
-        if (data.type === "new_message" || data.type === "message_read" || data.type === "typing") {
-          const listers = subs.get("__list__");
-          if (listers) {
-            for (const socket of listers) {
-              const allowed = socket.isAgent || (socket.deviceId && socket.deviceId === deviceId);
-              if (socket.readyState === 1 && allowed) {
+        // Chat signaling: ticket:{ticketId}
+        let m = channel.match(/^ticket:(.+?)(?::user:(.+))?$/);
+        if (m) {
+          const ticketId = m[1];
+          const deviceId = m[2] || null;
+          const data = JSON.parse(payload);
+          const targets = subs.get(ticketId);
+          let sent = 0;
+          if (targets) {
+            for (const socket of targets) {
+              if (socket.readyState === 1) {
                 socket.send(JSON.stringify({ ...data, ticketId, deviceId }));
                 sent++;
-              } else {
-                // Prune socket mati supaya Set tak mengembang
-                listers.delete(socket);
-                if (listers.size === 0) subs.delete("__list__");
               }
             }
           }
+          if (data.type === "new_message" || data.type === "message_read" || data.type === "typing") {
+            const listers = subs.get("__list__");
+            if (listers) {
+              for (const socket of listers) {
+                const allowed = socket.isAgent || (socket.deviceId && socket.deviceId === deviceId);
+                if (socket.readyState === 1 && allowed) {
+                  socket.send(JSON.stringify({ ...data, ticketId, deviceId }));
+                  sent++;
+                } else {
+                  listers.delete(socket);
+                  if (listers.size === 0) subs.delete("__list__");
+                }
+              }
+            }
+          }
+          console.log(`[ws-bridge] ${channel} -> ${sent} clients (subs: ${subs.size})`);
+          return;
         }
-        console.log(`[ws-bridge] ${channel} -> ${sent} clients (subs: ${subs.size})`);
+
+        // Remote desktop signaling: remote:{deviceId}
+        m = channel.match(/^remote:(.+)$/);
+        if (m) {
+          const deviceId = m[1];
+          const data = JSON.parse(payload);
+          const targets = subs.get(`remote:${deviceId}`);
+          let sent = 0;
+          if (targets) {
+            for (const socket of targets) {
+              if (socket.readyState === 1) {
+                socket.send(JSON.stringify(data));
+                sent++;
+              }
+            }
+          }
+          console.log(`[ws-remote] ${channel} -> ${sent} clients (subs: ${subs.size})`);
+          return;
+        }
       } catch (e) {
         console.error("[ws-bridge] error:", e);
       }
@@ -131,6 +153,8 @@ export async function buildApp() {
         try {
           if (message.length > 4096) return socket.close(1009, "Pesan terlalu besar");
           const data = JSON.parse(message.toString());
+
+          // Chat signaling subscribe: ticket:{ticketId} or __list__
           if (data.type === "subscribe" && data.ticketId) {
             let isAgent = false;
             if (data.token) {
@@ -155,6 +179,35 @@ export async function buildApp() {
             if (!subs.has(data.ticketId)) subs.set(data.ticketId, new Set());
             subs.get(data.ticketId)!.add(socket);
             console.log(`[ws] subscribed ${data.ticketId} (subs: ${subs.size})`);
+            return;
+          }
+
+          // Remote desktop signaling subscribe: remote:{deviceId}
+          if (data.type === "subscribe-remote" && data.deviceId) {
+            let isAgent = false;
+            let deviceId = "";
+            if (data.token) {
+              try {
+                const user = fastify.jwt.verify(data.token) as { role?: string };
+                isAgent = user.role === "agent" || user.role === "admin";
+              } catch {}
+            }
+            if (data.isAgent === true) {
+              isAgent = true;
+              deviceId = data.deviceId;
+            } else {
+              // Agent desktop: deviceId harus cocok dengan device yang mengklaim
+              deviceId = data.deviceId;
+            }
+            if (!isAgent && !deviceId) return socket.close(1008, "Autentikasi wajib");
+
+            socket.isAgent = isAgent;
+            socket.deviceId = deviceId || null;
+            const channel = `remote:${deviceId}`;
+            if (!subs.has(channel)) subs.set(channel, new Set());
+            subs.get(channel)!.add(socket);
+            console.log(`[ws-remote] subscribed ${channel} (subs: ${subs.size})`);
+            return;
           }
         } catch (e) {
           // Ignore parse errors
@@ -168,8 +221,8 @@ export async function buildApp() {
         console.log(`[ws] closed (subs: ${subs.size})`);
       });
     });
-    // Subscribe ke semua event ticket (new_message, typing)
-    await subClient.psubscribe("ticket:*");
+    // Subscribe ke semua event ticket dan remote signaling
+    await subClient.psubscribe("ticket:*", "remote:*");
   });
 
   // Initialize services

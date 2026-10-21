@@ -139,6 +139,23 @@ export async function initDb() {
       CREATE INDEX IF NOT EXISTS idx_hw_events_inventory ON hardware_events(inventory_id, event_date DESC);
 
       ALTER TABLE tickets ADD COLUMN IF NOT EXISTS lokasi VARCHAR(255);
+
+      -- Remote desktop sessions
+      CREATE TABLE IF NOT EXISTS remote_sessions (
+        id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+        device_id VARCHAR(100) NOT NULL,
+        agent_id UUID REFERENCES users(id),
+        agent_name VARCHAR(255),
+        status VARCHAR(20) DEFAULT 'pending' CHECK (status IN ('pending', 'accepted', 'rejected', 'active', 'ended', 'timeout')),
+        started_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        accepted_at TIMESTAMP,
+        ended_at TIMESTAMP,
+        client_ip INET,
+        note TEXT
+      );
+      CREATE INDEX IF NOT EXISTS idx_remote_sessions_device ON remote_sessions(device_id, started_at DESC);
+      CREATE INDEX IF NOT EXISTS idx_remote_sessions_agent ON remote_sessions(agent_id);
+      ALTER TABLE remote_sessions ADD COLUMN IF NOT EXISTS last_activity TIMESTAMP DEFAULT CURRENT_TIMESTAMP;
     `);
     console.log("Database tables created");
   } finally {

@@ -5,10 +5,12 @@ mod system_tray;
 mod notifications;
 mod auto_start;
 mod bg_sample;
+mod remote_control;
 
 use std::sync::{Mutex, OnceLock};
 use tauri::{Listener, Manager};
 
+use crate::remote_control::RemoteControlState;
 use crate::system_tray::nudge_repaint;
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
@@ -31,6 +33,7 @@ pub fn run() {
         .plugin(tauri_plugin_notification::init())
         .plugin(tauri_plugin_updater::Builder::new().build())
         .plugin(tauri_plugin_process::init())
+        .manage(RemoteControlState::new())
         .setup(|app| {
             // Window pet-overlay & mini didefinisikan di tauri.conf.json
             let pet_window = app.get_webview_window("pet-overlay")
@@ -94,6 +97,8 @@ pub fn run() {
             notifications::request_permission,
             bg_sample::sample_bg_luminance,
             log_update_error,
+            remote_control::remote_respond,
+            remote_control::remote_end_session,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

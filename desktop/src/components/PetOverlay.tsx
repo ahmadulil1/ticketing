@@ -1,13 +1,22 @@
 import { useState, useEffect, useRef } from "react";
-import { EyeOff, ExternalLink, X, GraduationCap } from "lucide-react";
+import {
+  EyeOff,
+  ExternalLink,
+  X,
+  GraduationCap,
+  Pause,
+  Video,
+  AlertCircle,
+} from "lucide-react";
 import { useUnread } from "../hooks/useUnread";
 import { useRealtime } from "../hooks/useRealtime";
+import { getDeviceId } from "../services/device";
 import petGif from "../assets/pet.gif";
 
 const isTauri = () =>
   typeof window !== "undefined" &&
   (typeof (window as any).__TAURI_INTERNALS__ !== "undefined" ||
-   typeof (window as any).__TAURI__ !== "undefined");
+    typeof (window as any).__TAURI__ !== "undefined");
 
 // Tauri invoke wrapper — graceful fallback di browser
 async function tauriInvoke(cmd: string, args?: object): Promise<any> {
@@ -41,24 +50,32 @@ interface Props {
   onClick: () => void;
 }
 
+type RemoteState = "idle" | "pending" | "active";
+
 export default function PetOverlay({ onClick }: Props) {
   const [showMenu, setShowMenu] = useState(false);
   const [petHidden, setPetHidden] = useState(false);
   const [now, setNow] = useState(() => new Date());
   const { unread } = useUnread();
-  // WS push instan ke badge pet (window terpisah butuh subscribe sendiri)
   useRealtime("__list__", []);
   const unreadCount = Object.values(unread).reduce((a, b) => a + b, 0);
 
-  // Jam mengikuti waktu komputer, update tiap detik
+  // Remote desktop state
+  const [remoteState, setRemoteState] = useState<RemoteState>("idle");
+  const [remoteSessionId, setRemoteSessionId] = useState<string>("");
+  const [remoteAgentName, setRemoteAgentName] = useState<string>("");
+  const [remotePending, setRemotePending] = useState(false);
+
+  const deviceId = getDeviceId();
+
+  // Jam
   useEffect(() => {
     const id = setInterval(() => setNow(new Date()), 1000);
     return () => clearInterval(id);
   }, []);
 
-  // Monitoring CPU/RAM/disk/internet tiap 2 detik (invoke Rust get_usage)
+  // Monitoring CPU/RAM/disk/internet
   const [usage, setUsage] = useState<any>(null);
-  // Tema adaptif: terang/gelap sesuai warna layar di sekitar pet
   const [bgLight, setBgLight] = useState<boolean>(() =>
     typeof window !== "undefined" && window.matchMedia?.("(prefers-color-scheme: light)").matches
   );
@@ -75,15 +92,140 @@ export default function PetOverlay({ onClick }: Props) {
     const id = setInterval(sample, 3000);
     return () => { alive = false; clearInterval(id); };
   }, []);
+
   useEffect(() => {
     let alive = true;
-    const poll = () => tauriInvoke("get_usage").then(d => { if (alive && d) setUsage(d); }).catch(() => {});
+    const poll = () =>
+      tauriInvoke("get_usage").then((d) => {
+        if (alive && d) setUsage(d);
+      }).catch(() => {});
     poll();
     const id = setInterval(poll, 2000);
     return () => { alive = false; clearInterval(id); };
   }, []);
-  // ponytail: net format — kecil ekstra, cuma tampilan
-  const fmt = (bs: number) => bs >= 1_000_000 ? `${(bs / 1_000_000).toFixed(1)}Mb` : bs >= 1000 ? `${(bs / 1000).toFixed(0)}kb` : `${bs}b`;
+
+  // -------------------------------------------------------------------
+  // WebSocket signaling untuk remote desktop (channel remote:{deviceId})
+  // -------------------------------------------------------------------
+  useEffect(() => {
+    let ws: WebSocket | null = null;
+    let alive = true;
+
+    const connect = async () => {
+      const wsUrl =
+        (import.meta.env.VITE_WS_URL as string | undefined) ||
+        (import.meta.env.VITE_API_URL as string | undefined)
+          ?.replace(/^http/, "ws")
+          .replace(/\/api$/, "") ||
+        "ws://localhost";
+      const url = `${wsUrl}/ws`;
+      try {
+        ws = new WebSocket(url);
+        ws.binaryType = "arraybuffer";
+
+        ws.onopen = () => {
+          console.log("[pet-remote] WS connected");
+          // Subscribe ke channel remote untuk device ini (agent mode)
+          ws?.send(
+            JSON.stringify({
+              type: "subscribe-remote",
+              deviceId,
+              isAgent: false,
+            })
+          );
+        };
+
+        ws.onmessage = (ev) => {
+          if (!alive) return;
+          try {
+            const data = JSON.parse(new TextDecoder().decode(ev.data as ArrayBuffer));
+            switch (data.type) {
+              case "remote_request":
+                // Admin meminta remote: tampilkan popup consent
+                if (data.device_id === deviceId) {
+                  setRemoteAgentName(data.agent_name || "Agent");
+                  setRemoteSessionId(data.sessionId);
+                  setRemoteState("pending");
+                  setRemotePending(true);
+                }
+                break;
+              case "remote_ended":
+                if (data.sessionId === remoteSessionId) {
+                  setRemoteState("idle");
+                  setRemoteSessionId("");
+                  setRemoteAgentName("");
+                  setRemotePending(false);
+                }
+                break;
+              default:
+                break;
+            }
+          } catch {}
+        };
+
+        ws.onclose = () => {
+          if (alive) {
+            setTimeout(connect, 3000);
+          }
+        };
+      } catch {
+        if (alive) setTimeout(connect, 3000);
+      }
+    };
+
+    connect();
+    return () => {
+      alive = false;
+      if (ws) ws.close();
+    };
+  }, [deviceId, remoteSessionId]);
+
+  const handleAcceptRemote = async () => {
+    try {
+      await tauriInvoke("remote_respond", {
+        session_id: remoteSessionId,
+        accept: true,
+      });
+      setRemoteState("active");
+      setRemotePending(false);
+    } catch (e) {
+      console.error("[pet] remote_accept error:", e);
+      setRemoteState("idle");
+      setRemotePending(false);
+    }
+  };
+
+  const handleRejectRemote = async () => {
+    try {
+      await tauriInvoke("remote_respond", {
+        session_id: remoteSessionId,
+        accept: false,
+      });
+    } catch {}
+    setRemoteState("idle");
+    setRemoteSessionId("");
+    setRemoteAgentName("");
+    setRemotePending(false);
+  };
+
+  const handleEndRemote = async () => {
+    try {
+      await tauriInvoke("remote_end_session", {
+        session_id: remoteSessionId,
+      });
+    } catch {}
+    setRemoteState("idle");
+    setRemoteSessionId("");
+    setRemoteAgentName("");
+    setRemotePending(false);
+  };
+
+  const fmt = (bs: number) =>
+    bs >= 1_000_000
+      ? `${(bs / 1_000_000).toFixed(1)}Mb`
+      : bs >= 1000
+      ? `${(bs / 1000).toFixed(0)}kb`
+      : `${bs}b`;
   const overlayRef = useRef<HTMLDivElement>(null);
   const downInfo = useRef({ x: 0, y: 0, time: 0, isDown: false });
   const hasDragged = useRef(false);
@@ -106,7 +248,9 @@ export default function PetOverlay({ onClick }: Props) {
       hasDragged.current = true;
       if (isTauri()) {
         import("@tauri-apps/api/window").then(({ getCurrentWindow }) => {
-          getCurrentWindow().startDragging().catch((err) => console.error("[pet] startDragging gagal:", err));
+          getCurrentWindow().startDragging().catch((err) =>
+            console.error("[pet] startDragging gagal:", err)
+          );
         });
       }
     }
@@ -118,7 +262,6 @@ export default function PetOverlay({ onClick }: Props) {
     const didDrag = hasDragged.current;
     downInfo.current.isDown = false;
 
-    // Jika mouse dilepas tanpa drag dalam waktu wajar -> anggap klik
     if (wasDown && !didDrag && Date.now() - downInfo.current.time < 500) {
       onClick();
       tauriShowMini();
@@ -161,10 +304,52 @@ export default function PetOverlay({ onClick }: Props) {
 
   if (petHidden) return null;
 
+  // ================================================================
+  // Remote consent dialog (muncul saat admin meminta remote)
+  // ================================================================
+  const consentDialog =
+    remoteState === "pending" && remotePending ? (
+      <div className="pet-remote-consent">
+        <div className="pet-remote-consent-card">
+          <AlertCircle size={24} className="pet-remote-icon" />
+          <div className="pet-remote-title">Akses Remote</div>
+          <div className="pet-remote-subtitle">
+            {remoteAgentName} meminta mengontrol komputer Anda
+          </div>
+          <div className="pet-remote-actions">
+            <button className="pet-remote-btn reject" onClick={handleRejectRemote}>
+              Tolak
+            </button>
+            <button className="pet-remote-btn accept" onClick={handleAcceptRemote}>
+              Izinkan
+            </button>
+          </div>
+        </div>
+      </div>
+    ) : null;
+
+  // ================================================================
+  // Remote active indicator (di pet overlay saat remote aktif)
+  // ================================================================
+  const remoteIndicator =
+    remoteState === "active" ? (
+      <div className="pet-remote-indicator">
+        <span className="pet-remote-dot" />
+        <span className="pet-remote-label">Sedang di-remote oleh {remoteAgentName}</span>
+        <button className="pet-remote-stop" onClick={handleEndRemote}>
+          <Pause size={12} /> Hentikan
+        </button>
+      </div>
+    ) : null;
+
   return (
     <div
       ref={overlayRef}
-      className={"pet-overlay" + (bgLight ? " pet-light" : " pet-dark")}
+      className={
+        "pet-overlay" +
+        (bgLight ? " pet-light" : " pet-dark") +
+        (remoteState === "active" ? " pet-remote-active" : "")
+      }
       onMouseDown={handleMouseDown}
       onMouseMove={handleMouseMove}
       onMouseUp={handleMouseUp}
@@ -172,6 +357,8 @@ export default function PetOverlay({ onClick }: Props) {
       onContextMenu={handleContextMenu}
       title="Klik untuk buka, drag untuk pindah, klik kanan untuk menu"
     >
+      {consentDialog}
+      {remoteIndicator}
       <img
         src={petGif}
         alt="Pet"
@@ -180,14 +367,27 @@ export default function PetOverlay({ onClick }: Props) {
       />
       <div className="pet-clock">
         <span className="pet-time">
-          {now.toLocaleTimeString("id-ID", { hour: "2-digit", minute: "2-digit", second: "2-digit", hour12: false })}
+          {now.toLocaleTimeString("id-ID", {
+            hour: "2-digit",
+            minute: "2-digit",
+            second: "2-digit",
+            hour12: false,
+          })}
         </span>
         <span className="pet-date">
-          {now.toLocaleDateString("id-ID", { weekday: "long", day: "numeric", month: "long", year: "numeric" }).toLowerCase()}
+          {now
+            .toLocaleDateString("id-ID", {
+              weekday: "long",
+              day: "numeric",
+              month: "long",
+              year: "numeric",
+            })
+            .toLowerCase()}
         </span>
         {usage && (
           <span className="pet-stats">
-            CPU {usage.cpu}% · RAM {usage.ram}% · SSD {usage.disks?.[0]?.pct ?? 0}% · ↓{fmt(usage.net_down)} ↑{fmt(usage.net_up)}
+            CPU {usage.cpu}% · RAM {usage.ram}% · SSD {usage.disks?.[0]?.pct ?? 0}% ·
+            ↓{fmt(usage.net_down)} ↑{fmt(usage.net_up)}
           </span>
         )}
       </div>
@@ -198,7 +398,6 @@ export default function PetOverlay({ onClick }: Props) {
             <ExternalLink size={16} /> Buka Ticketing
           </button>
           <button onClick={() => {
-            // Event cross-window: storage event diterima MiniWindow (sama origin) untuk replay tutorial
             localStorage.setItem("tutorial:show", String(Date.now()));
             onClick(); tauriShowMini(); setShowMenu(false);
           }}>

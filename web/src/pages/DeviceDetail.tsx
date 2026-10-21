@@ -1,7 +1,7 @@
 import { useQuery } from "@tanstack/react-query";
 import api from "../lib/api";
 import { useParams, useNavigate } from "react-router-dom";
-import { ArrowLeft } from "lucide-react";
+import { ArrowLeft, Video, StopCircle, X } from "lucide-react";
 import { useState } from "react";
 import Pagination from "../components/Pagination";
 import DiskBars from "../components/DiskBars";
@@ -17,6 +17,10 @@ export default function DeviceDetail() {
   const navigate = useNavigate();
   // Pagination list tiket device: 10/halaman
   const [page, setPage] = useState(1);
+  // Remote desktop session state
+  const [remoteSession, setRemoteSession] = useState<{ id: string; status: string } | null>(null);
+  const [remoteViewerOpen, setRemoteViewerOpen] = useState(false);
+  const [remoteLoading, setRemoteLoading] = useState(false);
 
   const { data: device, isLoading } = useQuery({
     queryKey: ["device", deviceId],
@@ -45,6 +49,23 @@ export default function DeviceDetail() {
         {device.inventory && (
           <button className="btn btn-outline" onClick={() => navigate(`/inventories/${device.inventory.id}`)}>
             Inv. {device.inventory.no_inventaris}
+          </button>
+        )}
+        {!remoteSession && (
+          <button
+            className="btn btn-outline"
+            onClick={createRemoteSession}
+            disabled={remoteLoading}
+          >
+            {remoteLoading ? "Membuat sesi..." : <><Video size={16} /> Remote Desktop</>}
+          </button>
+        )}
+        {remoteSession && remoteSession.status !== "ended" && (
+          <button
+            className="btn btn-outline"
+            onClick={() => setRemoteViewerOpen(true)}
+          >
+            <Video size={16} /> Buka Viewer
           </button>
         )}
       </div>
@@ -86,6 +107,22 @@ export default function DeviceDetail() {
         <DiskBars disks={device.spec?.disks} />
       </div>
 
+    // Buat sesi remote ke device ini
+    const createRemoteSession = async () => {
+      setRemoteLoading(true);
+      try {
+        const res = await api.post("/remote/", {
+          device_id: deviceId,
+          agent_name: "Admin",
+        });
+        setRemoteSession({ id: res.data.id, status: res.data.status });
+      } catch (e: any) {
+        alert(e.response?.data?.error || "Gagal membuat sesi remote");
+      } finally {
+        setRemoteLoading(false);
+      }
+    };
+
       <div className="panel">
         <div className="panel-head"><h2>Tiket Device Ini</h2></div>
         <div className="device-tickets">
@@ -107,6 +144,45 @@ export default function DeviceDetail() {
           onChange={setPage}
         />
       </div>
+
+      {/* Remote Desktop Viewer Dialog */}
+      {remoteViewerOpen && remoteSession && (
+        <div className="remote-viewer-overlay">
+          <div className="remote-viewer-panel">
+            <div className="remote-viewer-head">
+              <h2>Remote: {device.device_name || device.device_id}</h2>
+              <button className="btn btn-outline" onClick={() => setRemoteViewerOpen(false)}>
+                <X size={16} /> Tutup
+              </button>
+            </div>
+            <div className="remote-viewer-body">
+              <div className="remote-screen-placeholder">
+                <Video size={64} className="remote-screen-icon" />
+                <p>Menunggu layar klien... (WebRTC viewer akan ditampilkan di sini)</p>
+                <p className="muted" style={{ fontSize: "0.8125rem" }}>
+                  Sesi ID: {remoteSession.id} · Status: {remoteSession.status}
+                </p>
+              </div>
+            </div>
+            <div className="remote-viewer-controls">
+              <button
+                className="btn btn-destructive"
+                onClick={async () => {
+                  try {
+                    await api.delete(`/remote/${remoteSession.id}`);
+                    setRemoteViewerOpen(false);
+                    setRemoteSession(null);
+                  } catch {}
+                }}
+              >
+                <StopCircle size={16} /> Akhiri Sesi Remote
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
+
+
