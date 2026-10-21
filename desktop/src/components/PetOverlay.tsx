@@ -44,6 +44,12 @@ async function tauriInvoke(cmd: string, args?: object): Promise<any> {
   }
 }
 
+// Versi strict: error dilempar (dipakai saat caller perlu tahu kegagalan)
+async function tauriInvokeStrict(cmd: string, args?: object): Promise<any> {
+  const { invoke } = await import("@tauri-apps/api/core");
+  return invoke(cmd, args as Record<string, unknown>);
+}
+
 // Buka mini window langsung via invoke & event
 async function tauriShowMini() {
   if (isTauri()) {
@@ -83,6 +89,15 @@ export default function PetOverlay({ onClick }: Props) {
   const deviceId = getDeviceId();
   const wsRef = useRef<WebSocket | null>(null);
   const captureLoopRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  // ponytail: remoteState harus dibaca lewat ref di dalam handler WS.
+  // State di-capture stale karena effect WS tidak depend ke remoteState
+  // (depend ke remoteSessionId) -> input dari viewer selalu terkira "belum active".
+  const remoteStateRef = useRef<RemoteState>("idle");
+
+  // Sinkronkan ref remote state
+  useEffect(() => {
+    remoteStateRef.current = remoteState;
+  }, [remoteState]);
 
   // Jam
   useEffect(() => {
@@ -176,11 +191,11 @@ export default function PetOverlay({ onClick }: Props) {
         ws = new WebSocket(url);
         ws.binaryType = "arraybuffer";
 
-        ws.onopen = () => {
+        ws.onopen = async () => {
           console.log("[pet-remote] WS connected");
           wsRef.current = ws;
-          // Subscribe ke channel remote untuk device ini (agent mode).
-          // deviceSecret wajib cocok dengan yang terdaftar di server.
+          // Pastikan device terdaftar dulu, kalau tidak server tolak subscribe.
+          await registerDeviceSecret();
           ws?.send(
             JSON.stringify({
               type: "subscribe-remote",
@@ -194,7 +209,14 @@ export default function PetOverlay({ onClick }: Props) {
         ws.onmessage = (ev) => {
           if (!alive) return;
           try {
-            const data = JSON.parse(new TextDecoder().decode(ev.data as ArrayBuffer));
+            // ponytail: frame TEXT tiba sebagai string, BINARY sebagai ArrayBuffer.
+            // binaryType="arraybuffer" tak mengubah frame text -> jangan
+            // paksa decode(ArrayBuffer) atau pesan dibuang diam-diam.
+            const raw =
+              typeof ev.data === "string"
+                ? ev.data
+                : new TextDecoder().decode(ev.data as ArrayBuffer);
+            const data = JSON.parse(raw);
             switch (data.type) {
               case "remote_request":
                 if (data.device_id === deviceId) {
@@ -218,11 +240,12 @@ export default function PetOverlay({ onClick }: Props) {
                 break;
               case "remote_input":
                 // Input dari web viewer: injeksi ke OS
-                if (data.session_id === remoteSessionId && remoteState === "active") {
-                  tauriInvoke("remote_inject_input", {
-                    session_id: remoteSessionId,
+                if (data.session_id === remoteSessionId && remoteStateRef.current === "active") {
+                  tauriInvokeStrict("remote_inject_input", {
+                    sessionId: remoteSessionId,
                     input: data.input,
-                  });
+                  })
+                    .catch((e) => console.error("[pet] inject error:", e));
                 }
                 break;
               default:
@@ -253,13 +276,23 @@ export default function PetOverlay({ onClick }: Props) {
   // -------------------------------------------------------------------
   useEffect(() => {
     if (remoteState === "active" && remoteSessionId) {
+      let lastNote = "";
       captureLoopRef.current = setInterval(async () => {
         try {
-          await tauriInvoke("remote_capture_and_send", {
-            session_id: remoteSessionId,
+          await tauriInvokeStrict("remote_capture_and_send", {
+            sessionId: remoteSessionId,
           });
+          // Catat di server bahwa sesi sudah aktif (untuk audit)
+          if (lastNote !== "OK") {
+            lastNote = "OK";
+            api.patch(`/remote/${remoteSessionId}`, {
+              status: "accepted", device_id: deviceId, device_secret: getDeviceSecret(),
+              note: "remote aktif",
+            }).catch(() => {});
+          }
         } catch (e) {
           console.error("[pet] capture error:", e);
+          lastNote = "ERR";
         }
       }, 500); // ~2 FPS
       return () => {
@@ -282,18 +315,26 @@ export default function PetOverlay({ onClick }: Props) {
   useEffect(() => {
     let unlisten: (() => void) | undefined = undefined;
     const start = async () => {
-      unlisten = await tauriListen("remote-frame", (payload: any) => {
-        if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
-          wsRef.current.send(
-            JSON.stringify({
-              type: "remote_frame",
-              session_id: payload.session_id,
-              data: payload.data,
-              format: payload.format,
-            })
-          );
-        }
-      });
+      try {
+        const { listen } = await import("@tauri-apps/api/event");
+        const u = await listen("remote-frame", (event: any) => {
+          const payload = event?.payload;
+          const ws = wsRef.current;
+          if (ws && ws.readyState === WebSocket.OPEN) {
+            ws.send(
+              JSON.stringify({
+                type: "remote_frame",
+                session_id: payload?.session_id,
+                data: payload?.data,
+                format: payload?.format,
+              })
+            );
+          }
+        });
+        unlisten = u;
+      } catch (e) {
+        console.error("[pet] listen remote-frame gagal:", e);
+      }
     };
     start();
     return () => {
@@ -304,9 +345,9 @@ export default function PetOverlay({ onClick }: Props) {
   const handleAcceptRemote = async () => {
     try {
       await tauriInvoke("remote_respond", {
-        session_id: remoteSessionId,
-        device_id: deviceId,
-        agent_name: remoteAgentName || "Agent",
+        sessionId: remoteSessionId,
+        deviceId: deviceId,
+        agentName: remoteAgentName || "Agent",
         accept: true,
       });
       // Kabari server status sesi jadi accepted
@@ -331,9 +372,9 @@ export default function PetOverlay({ onClick }: Props) {
   const handleRejectRemote = async () => {
     try {
       await tauriInvoke("remote_respond", {
-        session_id: remoteSessionId,
-        device_id: deviceId,
-        agent_name: remoteAgentName || "Agent",
+        sessionId: remoteSessionId,
+        deviceId: deviceId,
+        agentName: remoteAgentName || "Agent",
         accept: false,
       });
     } catch {}
@@ -354,7 +395,7 @@ export default function PetOverlay({ onClick }: Props) {
   const handleEndRemote = async () => {
     try {
       await tauriInvoke("remote_end_session", {
-        session_id: remoteSessionId,
+        sessionId: remoteSessionId,
       });
     } catch {}
     // Kabari server sesi diakhiri user
@@ -456,25 +497,42 @@ export default function PetOverlay({ onClick }: Props) {
   if (petHidden) return null;
 
   // ================================================================
-  // Remote consent dialog (muncul saat admin meminta remote)
+  // Remote consent dialog (compact bar — pet window cuma 400x120)
   // ================================================================
+  // ponytail: event klik HARUS stopPropagation. Tanpa itu, onMouseUp parent
+  // (pet) membuka mini window -> focus ikut dicuri -> browser batalkan event
+  // "click" sehingga tombol Izinkan tak pernah tereksekusi.
   const consentDialog =
     remoteState === "pending" && remotePending ? (
-      <div className="pet-remote-consent">
-        <div className="pet-remote-consent-card">
-          <AlertCircle size={24} className="pet-remote-icon" />
-          <div className="pet-remote-title">Akses Remote</div>
-          <div className="pet-remote-subtitle">
-            {remoteAgentName} meminta mengontrol komputer Anda
-          </div>
-          <div className="pet-remote-actions">
-            <button className="pet-remote-btn reject" onClick={handleRejectRemote}>
-              Tolak
-            </button>
-            <button className="pet-remote-btn accept" onClick={handleAcceptRemote}>
-              Izinkan
-            </button>
-          </div>
+      <div
+        className="pet-remote-consent"
+        onMouseDown={(e) => e.stopPropagation()}
+        onMouseUp={(e) => e.stopPropagation()}
+        onClick={(e) => e.stopPropagation()}
+      >
+        <span className="pet-remote-consent-text">
+          <AlertCircle size={13} />
+          <strong>{remoteAgentName}</strong> minta akses remote
+        </span>
+        <div className="pet-remote-consent-actions">
+          <button
+            className="pet-remote-btn reject"
+            onClick={(e) => {
+              e.stopPropagation();
+              handleRejectRemote();
+            }}
+          >
+            Tolak
+          </button>
+          <button
+            className="pet-remote-btn accept"
+            onClick={(e) => {
+              e.stopPropagation();
+              handleAcceptRemote();
+            }}
+          >
+            Izinkan
+          </button>
         </div>
       </div>
     ) : null;
@@ -484,10 +542,21 @@ export default function PetOverlay({ onClick }: Props) {
   // ================================================================
   const remoteIndicator =
     remoteState === "active" ? (
-      <div className="pet-remote-indicator">
+      <div
+        className="pet-remote-indicator"
+        onMouseDown={(e) => e.stopPropagation()}
+        onMouseUp={(e) => e.stopPropagation()}
+        onClick={(e) => e.stopPropagation()}
+      >
         <span className="pet-remote-dot" />
         <span className="pet-remote-label">Sedang di-remote oleh {remoteAgentName}</span>
-        <button className="pet-remote-stop" onClick={handleEndRemote}>
+        <button
+          className="pet-remote-stop"
+          onClick={(e) => {
+            e.stopPropagation();
+            handleEndRemote();
+          }}
+        >
           <Pause size={12} /> Hentikan
         </button>
       </div>

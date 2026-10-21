@@ -77,7 +77,12 @@ export default function DeviceDetail() {
         ws.onmessage = (ev) => {
           if (!alive) return;
           try {
-            const data = JSON.parse(new TextDecoder().decode(ev.data as ArrayBuffer));
+            // Frame TEXT = string, BINARY = ArrayBuffer. Jangan paksa decode.
+            const raw =
+              typeof ev.data === "string"
+                ? ev.data
+                : new TextDecoder().decode(ev.data as ArrayBuffer);
+            const data = JSON.parse(raw);
             if (data.type === "remote_frame" && data.session_id === remoteSession?.id) {
               const mime = data.format === "jpeg" ? "image/jpeg" : "image/png";
               setFrameData(`data:${mime};base64,${data.data}`);

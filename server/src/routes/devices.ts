@@ -30,6 +30,28 @@ const deviceRoutes: FastifyPluginAsync = async (fastify) => {
       [body.device_id, spec.hostname, spec.cpu_model, spec.ram_gb, spec.gpu_model, spec.os_name, spec.disks ? JSON.stringify(spec.disks) : null]
     );
 
+    // Merge device by hostname: app bisa arrive dengan device_id baru (mis. reinstall
+    // / ganti origin localStorage) tapi hostname sama -> pindahkan seluruh riwayat
+    // ke device_id baru supaya tiket lama tidak orphan.
+    if (spec.hostname) {
+      const dup = await db.query(
+        "SELECT device_id FROM device_specs WHERE hostname = $1 AND device_id <> $2 LIMIT 1",
+        [spec.hostname, body.device_id]
+      );
+      if (dup.rows[0]) {
+        const oldId = dup.rows[0].device_id;
+        try {
+          await db.query("UPDATE tickets SET device_id = $1 WHERE device_id = $2", [body.device_id, oldId]);
+          await db.query("UPDATE inventories SET device_id = $1 WHERE device_id = $2", [body.device_id, oldId]);
+          await db.query("DELETE FROM device_specs WHERE device_id = $1", [oldId]);
+          await db.query("DELETE FROM device_credentials WHERE device_id = $1", [oldId]);
+          console.log(`[devices] merge device ${oldId} -> ${body.device_id} (hostname sama)`);
+        } catch (e: any) {
+          console.error(`[devices] merge ${oldId} -> ${body.device_id} gagal:`, e?.message);
+        }
+      }
+    }
+
     // Auto-buat aset inventaris untuk device baru (admin isi no/lokasi manual,
     // lalu masukkan ke cabang/group manual lewat UI)
     const has = await db.query(`SELECT id FROM inventories WHERE device_id = $1`, [body.device_id]);

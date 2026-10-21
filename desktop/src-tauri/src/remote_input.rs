@@ -14,8 +14,11 @@ use crate::remote_control::RemoteControlState;
 /// Koordinat boleh ternormalisasi (`norm: true`, nilai 0..1 relatif terhadap
 /// area gambar) atau absolut (px layar). Viewer memakai ternormalisasi karena
 /// frame yang dikirim sudah di-downscale — jadi tidak perlu tahu ukuran layar.
+///
+/// Format JSON: {"type":"MouseMove","x":0.5,"y":0.2,"norm":true}
+/// (internally tagged — cocok dengan payload yang dikirim web viewer)
 #[derive(Debug, Deserialize, Serialize)]
-#[serde(tag = "type", content = "data")]
+#[serde(tag = "type")]
 pub enum RemoteInput {
     MouseMove { x: f64, y: f64, norm: bool },
     MouseDown { button: String, x: f64, y: f64, norm: bool },

@@ -9,6 +9,7 @@ mod remote_control;
 mod remote_stream;
 mod remote_input;
 mod remote_permissions;
+mod device_identity;
 
 use std::sync::{Mutex, OnceLock};
 use tauri::{Listener, Manager};
@@ -108,6 +109,7 @@ pub fn run() {
             remote_permissions::remote_check_permissions,
             remote_permissions::remote_request_screen_recording,
             remote_permissions::remote_open_accessibility_settings,
+            device_identity::get_device_identity,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

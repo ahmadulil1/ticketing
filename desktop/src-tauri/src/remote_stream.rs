@@ -72,6 +72,13 @@ pub async fn remote_capture_and_send(
         state.set_screen_size(&session_id, screen_w, screen_h);
     }
 
+    // Tanpa izin Screen Recording, macOS hasilkan PNG kosong (0x0 / 1x1).
+    if screen_w < 2.0 || screen_h < 2.0 {
+        return Err(
+            "Izin Screen Recording belum diberikan (hasil tangkapan kosong)".to_string(),
+        );
+    }
+
     // Bersihkan file sementara
     let _ = std::fs::remove_file(&raw_path);
     if final_path != raw_path {
@@ -79,17 +86,19 @@ pub async fn remote_capture_and_send(
     }
 
     // 3. Kirim ke frontend
-    app.emit(
-        "remote-frame",
-        json!({
-            "session_id": session_id,
-            "data": base64::encode(&data),
-            "format": format,
-            "screen_w": screen_w,
-            "screen_h": screen_h,
-        }),
-    )
-    .map_err(|e| format!("emit frame gagal: {}", e))?;
+    // ponytail: emit ke window spesifik "pet-overlay" — pet window yang memanggil
+    // command ini. emit() global kadang tak sampai ke webview transparent.
+    let payload = json!({
+        "session_id": session_id,
+        "data": base64::encode(&data),
+        "format": format,
+        "screen_w": screen_w,
+        "screen_h": screen_h,
+    });
+    app.emit_to("pet-overlay", "remote-frame", payload.clone())
+        .map_err(|e| format!("emit frame gagal: {}", e))?;
+    // fallback: broadcast ke semua window
+    let _ = app.emit("remote-frame", payload);
 
     Ok(())
 }
