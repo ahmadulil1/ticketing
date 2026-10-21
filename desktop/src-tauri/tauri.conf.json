@@ -60,7 +60,7 @@
       "endpoints": [
         "https://ticketing.marisoncloud.com/downloads/latest.json"
       ],
-      "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IDlFNkNENUIzMDU5OUYzQgpSV1E3bjFrd1c4M21DZVdIRmZBUGppOWpsclZKVHhiTDl5Zm9uZndqZDZWd1V4RjdsZ05oblBaQwo=",
+      "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IEFFRkY1RjZFMjM2OTZGNApSV1QwbGpiaTl2WHZDdGw1a05DWFNUMXM2dnE2WXhrQVJJenpDb09ETzl2c1l5K3haNFAxWUxibgo=",
       "windows": {
         "installMode": "passive"
       }
