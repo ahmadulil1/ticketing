@@ -1,9 +1,12 @@
+#[cfg(target_os = "macos")]
 use core_graphics::event::{
     CGEvent, CGEventFlags, CGEventType, CGEventTapLocation, CGMouseButton,
 };
+#[cfg(target_os = "macos")]
 use core_graphics::event_source::{
     CGEventSource, CGEventSourceStateID,
 };
+#[cfg(target_os = "macos")]
 use core_graphics::geometry::CGPoint;
 use serde::{Deserialize, Serialize};
 use tauri::State;
@@ -124,6 +127,7 @@ pub async fn remote_inject_input(
 }
 
 /// Ubah koordinat ternormalisasi (0..1) menjadi piksel absolut layar.
+#[cfg(target_os = "macos")]
 fn resolve(x: f64, y: f64, norm: bool, screen_w: f64, screen_h: f64) -> (f64, f64) {
     if norm {
         (x * screen_w, y * screen_h)
@@ -133,6 +137,7 @@ fn resolve(x: f64, y: f64, norm: bool, screen_w: f64, screen_h: f64) -> (f64, f6
 }
 
 /// Parse nama tombol mouse dari string
+#[cfg(target_os = "macos")]
 fn parse_mouse_button(button: &str) -> CGMouseButton {
     match button {
         "right" => CGMouseButton::Right,
@@ -144,6 +149,7 @@ fn parse_mouse_button(button: &str) -> CGMouseButton {
 /// Inject tombol keyboard via CGEventPost.
 /// Modifier (shift/ctrl/alt/cmd) dipasang lewat CGEventFlags supaya kombinasi
 /// seperti Cmd+C / Ctrl+V behaves seperti ketikan asli.
+#[cfg(target_os = "macos")]
 fn inject_key(
     source: CGEventSource,
     key: &str,
@@ -176,6 +182,7 @@ fn inject_key(
 }
 
 /// Map string kunci ke CGKeyCode (macOS virtual key codes)
+#[cfg(target_os = "macos")]
 fn key_to_cg_keycode(key: &str) -> u16 {
     let k = key.to_lowercase();
     match k.as_str() {
