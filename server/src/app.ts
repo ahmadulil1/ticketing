@@ -305,6 +305,14 @@ export async function buildApp() {
   await initDb();
   await initRedis();
 
+  // Cleanup berkala sesi remote yang idle > 30 menit.
+  // Tanpa interval ini, timeout cuma kepicu saat ada request API — kalau admin
+  // tinggalin viewer, sesi menggantung & device capture terus jalan.
+  const { expireRemoteSessions } = await import("./routes/remote.js");
+  setInterval(() => {
+    expireRemoteSessions().catch((e) => console.error("[remote] cleanup error:", e));
+  }, 60_000);
+
   // ponytail: @fastify/multipart tolak duluan dgn pesan Inggris (FST_FILES_LIMIT /
   // FST_REQ_FILE_TOO_LARGE) — terjemahkan jadi pesan Indonesia yang jelas.
   fastify.setErrorHandler((err: any, _request, reply) => {

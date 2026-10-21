@@ -85,6 +85,8 @@ export default function PetOverlay({ onClick }: Props) {
   const [remoteSessionId, setRemoteSessionId] = useState<string>("");
   const [remoteAgentName, setRemoteAgentName] = useState<string>("");
   const [remotePending, setRemotePending] = useState(false);
+  // "macos" | "windows" | "unknown" — remote desktop baru didukung macOS
+  const [platform, setPlatform] = useState<string>("unknown");
 
   const deviceId = getDeviceId();
   const wsRef = useRef<WebSocket | null>(null);
@@ -145,6 +147,7 @@ export default function PetOverlay({ onClick }: Props) {
     const check = async () => {
       const p = await tauriInvoke("remote_check_permissions");
       if (!alive || !p) return;
+      if (p.platform) setPlatform(p.platform);
       const missing: string[] = [];
       if (!p.accessibility) missing.push("accessibility");
       if (!p.screen_recording) missing.push("screen_recording");
@@ -275,7 +278,7 @@ export default function PetOverlay({ onClick }: Props) {
   // Capture loop: saat remote aktif, tangkap layar terus menerus
   // -------------------------------------------------------------------
   useEffect(() => {
-    if (remoteState === "active" && remoteSessionId) {
+    if (remoteState === "active" && remoteSessionId && platform === "macos") {
       let lastNote = "";
       captureLoopRef.current = setInterval(async () => {
         try {
@@ -307,7 +310,7 @@ export default function PetOverlay({ onClick }: Props) {
         captureLoopRef.current = null;
       }
     }
-  }, [remoteState, remoteSessionId]);
+  }, [remoteState, remoteSessionId, platform]);
 
   // -------------------------------------------------------------------
   // Listener Tauri event `remote-frame`: terima frame dari Rust, kirim via WS
@@ -512,9 +515,27 @@ export default function PetOverlay({ onClick }: Props) {
       >
         <span className="pet-remote-consent-text">
           <AlertCircle size={13} />
-          <strong>{remoteAgentName}</strong> minta akses remote
+          {platform === "macos" ? (
+            <>
+              <strong>{remoteAgentName}</strong> minta akses remote
+            </>
+          ) : (
+            <>Remote desktop belum tersedia di platform ini</>
+          )}
         </span>
         <div className="pet-remote-consent-actions">
+          {platform !== "macos" ? (
+            <button
+              className="pet-remote-btn reject"
+              onClick={(e) => {
+                e.stopPropagation();
+                handleRejectRemote();
+              }}
+            >
+              Tutup
+            </button>
+          ) : (
+          <>
           <button
             className="pet-remote-btn reject"
             onClick={(e) => {
@@ -533,6 +554,8 @@ export default function PetOverlay({ onClick }: Props) {
           >
             Izinkan
           </button>
+          </>
+          )}
         </div>
       </div>
     ) : null;

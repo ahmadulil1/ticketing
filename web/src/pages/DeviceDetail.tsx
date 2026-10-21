@@ -11,6 +11,14 @@ const STATUS_LABEL: Record<string, string> = {
   selesai: "Selesai", ditutup: "Ditutup", dibuka_kembali: "Dibuka Kembali",
 };
 const PRIO_LABEL: Record<string, string> = { rendah: "Rendah", normal: "Sedang", tinggi: "Tinggi", urgent: "Urgent" };
+const REMOTE_STATUS_LABEL: Record<string, string> = {
+  pending: "Menunggu persetujuan",
+  accepted: "Disetujui",
+  active: "Aktif",
+  rejected: "Ditolak",
+  ended: "Selesai",
+  timeout: "Kedaluwarsa",
+};
 
 export default function DeviceDetail() {
   const { deviceId } = useParams<{ deviceId: string }>();
@@ -22,6 +30,7 @@ export default function DeviceDetail() {
   // Viewer state
   const [frameData, setFrameData] = useState<string | null>(null);
   const [viewerConnected, setViewerConnected] = useState(false);
+  const [sessionEnded, setSessionEnded] = useState(false);
   const wsRef = useRef<WebSocket | null>(null);
 
   const { data: device, isLoading } = useQuery({
@@ -30,6 +39,23 @@ export default function DeviceDetail() {
       const res = await api.get(`/devices/${deviceId}`);
       return res.data;
     },
+  });
+
+  // Riwayat sesi remote untuk device ini (audit)
+  const { data: remoteHistory } = useQuery({
+    queryKey: ["remote-history", deviceId],
+    queryFn: async () => {
+      const res = await api.get(`/remote/?device_id=${encodeURIComponent(deviceId)}`);
+      return res.data as Array<{
+        id: string;
+        status: string;
+        agent_name?: string;
+        started_at: string;
+        ended_at?: string;
+        note?: string;
+      }>;
+    },
+    refetchInterval: 15000,
   });
 
   // -------------------------------------------------------------------
@@ -80,6 +106,12 @@ export default function DeviceDetail() {
             if (data.type === "remote_frame" && data.session_id === remoteSession?.id) {
               const mime = data.format === "jpeg" ? "image/jpeg" : "image/png";
               setFrameData(`data:${mime};base64,${data.data}`);
+              setSessionEnded(false);
+            }
+            // Sesi diakhiri (admin/klien/timeout) — jangan tampilkan frame beku
+            if (data.type === "remote_ended" && data.sessionId === remoteSession?.id) {
+              setSessionEnded(true);
+              setRemoteSession((s) => (s ? { ...s, status: "ended" } : s));
             }
           } catch {}
         };
@@ -157,14 +189,33 @@ export default function DeviceDetail() {
 
   const handleKeyDown = useCallback(
     (e: React.KeyboardEvent) => {
-      sendInput({ type: "KeyDown", key: e.key });
+      // Cegah shortcut browser (Cmd+W, Cmd+T, ...) supaya tak buka tab baru
+      e.preventDefault();
+      e.stopPropagation();
+      sendInput({
+        type: "KeyDown",
+        key: e.key,
+        shift: e.shiftKey,
+        ctrl: e.ctrlKey,
+        alt: e.altKey,
+        meta: e.metaKey,
+      });
     },
     [sendInput]
   );
 
   const handleKeyUp = useCallback(
     (e: React.KeyboardEvent) => {
-      sendInput({ type: "KeyUp", key: e.key });
+      e.preventDefault();
+      e.stopPropagation();
+      sendInput({
+        type: "KeyUp",
+        key: e.key,
+        shift: e.shiftKey,
+        ctrl: e.ctrlKey,
+        alt: e.altKey,
+        meta: e.metaKey,
+      });
     },
     [sendInput]
   );
@@ -177,6 +228,8 @@ export default function DeviceDetail() {
         agent_name: "Admin",
       });
       setRemoteSession({ id: res.data.id, status: res.data.status });
+      setSessionEnded(false);
+      setFrameData(null);
     } catch (e: any) {
       alert(e.response?.data?.error || "Gagal membuat sesi remote");
     } finally {
@@ -194,6 +247,10 @@ export default function DeviceDetail() {
   const cur = Math.min(page, totalPages);
   const tickets = all.slice((cur - 1) * PER, cur * PER);
 
+  // Remote desktop (capture + kontrol) baru diimplementasi untuk macOS.
+  const osName = (device.spec?.os_name || "").toLowerCase();
+  const remoteSupported = !osName || osName.includes("darwin") || osName.includes("mac");
+
   return (
     <div className="page">
       <div className="page-head">
@@ -210,9 +267,21 @@ export default function DeviceDetail() {
           <button
             className="btn btn-outline"
             onClick={createRemoteSession}
-            disabled={remoteLoading}
+            disabled={remoteLoading || !remoteSupported}
+            title={
+              remoteSupported
+                ? "Kontrol layar PC ini dari web admin"
+                : "Remote desktop baru tersedia untuk PC macOS"
+            }
           >
-            {remoteLoading ? "Membuat sesi..." : <><Video size={16} /> Remote Desktop</>}
+            {remoteLoading ? (
+              "Membuat sesi..."
+            ) : (
+              <>
+                <Video size={16} /> Remote Desktop
+                {!remoteSupported && " (macOS saja)"}
+              </>
+            )}
           </button>
         )}
         {remoteSession && remoteSession.status !== "ended" && (
@@ -221,6 +290,18 @@ export default function DeviceDetail() {
             onClick={() => setRemoteViewerOpen(true)}
           >
             <Video size={16} /> Buka Viewer
+          </button>
+        )}
+        {remoteSession && remoteSession.status === "ended" && (
+          <button
+            className="btn btn-outline"
+            onClick={() => {
+              setRemoteSession(null);
+              setSessionEnded(false);
+              setFrameData(null);
+            }}
+          >
+            <Video size={16} /> Remote Desktop (sesi baru)
           </button>
         )}
       </div>
@@ -262,6 +343,43 @@ export default function DeviceDetail() {
         <DiskBars disks={device.spec?.disks} />
       </div>
 
+      {/* Riwayat sesi remote (audit) */}
+      <div className="panel">
+        <div className="panel-head">
+          <h2>Riwayat Remote</h2>
+          {remoteHistory && remoteHistory.length > 0 && (
+            <span className="muted" style={{ fontSize: "0.8125rem" }}>
+              {remoteHistory.length} sesi
+            </span>
+          )}
+        </div>
+        {!remoteHistory || remoteHistory.length === 0 ? (
+          <span className="muted">Belum ada sesi remote untuk device ini</span>
+        ) : (
+          <div className="remote-history">
+            {remoteHistory.slice(0, 10).map((s) => (
+              <div key={s.id} className="remote-history-row">
+                <span className={`remote-status remote-status-${s.status}`}>
+                  {REMOTE_STATUS_LABEL[s.status] || s.status}
+                </span>
+                <span className="remote-agent">
+                  {s.agent_name || "—"}
+                </span>
+                <span className="remote-date">
+                  {new Date(s.started_at).toLocaleString("id-ID")}
+                </span>
+                {s.ended_at && (
+                  <span className="remote-date muted">
+                    s/d {new Date(s.ended_at).toLocaleTimeString("id-ID")}
+                  </span>
+                )}
+                {s.note && <span className="remote-note">{s.note}</span>}
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+
       <div className="panel">
         <div className="panel-head"><h2>Tiket Device Ini</h2></div>
         <div className="device-tickets">
@@ -298,7 +416,15 @@ export default function DeviceDetail() {
               </button>
             </div>
             <div className="remote-viewer-body">
-              {frameData ? (
+              {sessionEnded ? (
+                <div className="remote-screen-placeholder">
+                  <StopCircle size={56} className="remote-screen-icon" />
+                  <p>Sesi remote sudah berakhir</p>
+                  <p className="muted" style={{ fontSize: "0.8125rem" }}>
+                    Diakhiri oleh admin, pengguna, atau kedaluwarsa (30 menit idle).
+                  </p>
+                </div>
+              ) : frameData ? (
                 <img
                   src={frameData}
                   alt="Remote screen"
@@ -308,7 +434,9 @@ export default function DeviceDetail() {
                   onMouseUp={handleMouseUp}
                   onKeyDown={handleKeyDown}
                   onKeyUp={handleKeyUp}
+                  onContextMenu={(e) => e.preventDefault()}
                   tabIndex={0}
+                  autoFocus
                 />
               ) : (
                 <div className="remote-screen-placeholder">

@@ -1,5 +1,5 @@
 use core_graphics::event::{
-    CGEvent, CGEventType, CGEventTapLocation, CGMouseButton,
+    CGEvent, CGEventFlags, CGEventType, CGEventTapLocation, CGMouseButton,
 };
 use core_graphics::event_source::{
     CGEventSource, CGEventSourceStateID,
@@ -23,17 +23,49 @@ pub enum RemoteInput {
     MouseMove { x: f64, y: f64, norm: bool },
     MouseDown { button: String, x: f64, y: f64, norm: bool },
     MouseUp { button: String, x: f64, y: f64, norm: bool },
-    KeyDown { key: String },
-    KeyUp { key: String },
+    /// shift/ctrl/alt/meta = modifier yang sedang ditekan (untuk Cmd+C dll)
+    KeyDown {
+        key: String,
+        #[serde(default)]
+        shift: bool,
+        #[serde(default)]
+        ctrl: bool,
+        #[serde(default)]
+        alt: bool,
+        #[serde(default)]
+        meta: bool,
+    },
+    KeyUp {
+        key: String,
+        #[serde(default)]
+        shift: bool,
+        #[serde(default)]
+        ctrl: bool,
+        #[serde(default)]
+        alt: bool,
+        #[serde(default)]
+        meta: bool,
+    },
 }
 
 /// Terima peristiwa input dari frontend, lakukan inject ke OS via CGEventPost.
+///
+/// CATATAN: implementasi ini khusus macOS. Di platform lain mengembalikan
+/// error yang jelas (bukan gagal diam-diam).
 #[tauri::command]
 pub async fn remote_inject_input(
     state: State<'_, RemoteControlState>,
     session_id: String,
     input: RemoteInput,
 ) -> Result<(), String> {
+    #[cfg(not(target_os = "macos"))]
+    {
+        let _ = (&state, &session_id, &input);
+        return Err("Remote desktop baru tersedia di macOS".to_string());
+    }
+
+    #[cfg(target_os = "macos")]
+    {
     // Koordinat ternormalisasi -> absolut memakai ukuran layar terakhir
     let (screen_w, screen_h) = state.screen_size(&session_id);
 
@@ -79,15 +111,16 @@ pub async fn remote_inject_input(
             .map_err(|_| "tidak bisa buat event mouse up".to_string())?;
             event.post(CGEventTapLocation::HID);
         }
-        RemoteInput::KeyDown { key } => {
-            inject_key(source, &key, true)?;
+        RemoteInput::KeyDown { key, shift, ctrl, alt, meta } => {
+            inject_key(source, &key, true, shift, ctrl, alt, meta)?;
         }
-        RemoteInput::KeyUp { key } => {
-            inject_key(source, &key, false)?;
+        RemoteInput::KeyUp { key, shift, ctrl, alt, meta } => {
+            inject_key(source, &key, false, shift, ctrl, alt, meta)?;
         }
     }
 
     Ok(())
+    }
 }
 
 /// Ubah koordinat ternormalisasi (0..1) menjadi piksel absolut layar.
@@ -108,11 +141,36 @@ fn parse_mouse_button(button: &str) -> CGMouseButton {
     }
 }
 
-/// Inject tombol keyboard via CGEventPost
-fn inject_key(source: CGEventSource, key: &str, press: bool) -> Result<(), String> {
+/// Inject tombol keyboard via CGEventPost.
+/// Modifier (shift/ctrl/alt/cmd) dipasang lewat CGEventFlags supaya kombinasi
+/// seperti Cmd+C / Ctrl+V behaves seperti ketikan asli.
+fn inject_key(
+    source: CGEventSource,
+    key: &str,
+    press: bool,
+    shift: bool,
+    ctrl: bool,
+    alt: bool,
+    meta: bool,
+) -> Result<(), String> {
     let keycode = key_to_cg_keycode(key);
     let event = CGEvent::new_keyboard_event(source, keycode, press)
         .map_err(|_| "tidak bisa buat event keyboard".to_string())?;
+
+    let mut flags = CGEventFlags::CGEventFlagNull;
+    if shift {
+        flags |= CGEventFlags::CGEventFlagShift;
+    }
+    if ctrl {
+        flags |= CGEventFlags::CGEventFlagControl;
+    }
+    if alt {
+        flags |= CGEventFlags::CGEventFlagAlternate;
+    }
+    if meta {
+        flags |= CGEventFlags::CGEventFlagCommand;
+    }
+    event.set_flags(flags);
     event.post(CGEventTapLocation::HID);
     Ok(())
 }

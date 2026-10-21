@@ -2,18 +2,37 @@ import { FastifyPluginAsync } from "fastify";
 import { db } from "../database.js";
 import { v4 as uuidv4 } from "uuid";
 
-// Tandai sesi yang idle > 30 menit sebagai timeout
-async function expireIdleSessions() {
-  await db.query(
+// Tandai sesi yang idle > 30 menit sebagai timeout.
+// ponytail: WAJIB kabari device target (publish remote_ended) — kalau tidak,
+// app desktop masih capture layar terus-menerus walau server sudah timeout.
+export async function expireRemoteSessions() {
+  const expired = await db.query(
     `UPDATE remote_sessions
      SET status = 'timeout', ended_at = CURRENT_TIMESTAMP
      WHERE status IN ('pending', 'accepted', 'active')
-       AND last_activity < NOW() - INTERVAL '30 minutes'`
+       AND last_activity < NOW() - INTERVAL '30 minutes'
+     RETURNING id, device_id`
   );
+  for (const row of expired.rows) {
+    try {
+      const { redis } = await import("../redis.js");
+      await redis.publish(
+        `remote:${row.device_id}`,
+        JSON.stringify({
+          type: "remote_ended",
+          sessionId: row.id,
+          reason: "timeout",
+          timestamp: new Date().toISOString(),
+        })
+      );
+    } catch (e) {
+      console.error("[remote] publish timeout error:", e);
+    }
+  }
 }
 
 // Segera tandai idle session agar subsequent read bersih
-expireIdleSessions().catch(() => {});
+expireRemoteSessions().catch(() => {});
 
 /**
  * Verifikasi agent/admin lewat JWT. Return user atau null.
@@ -95,7 +114,7 @@ const remoteRoutes: FastifyPluginAsync = async (fastify) => {
     if (!(await requireDevice(device_id, device_secret || ""))) {
       return reply.status(401).send({ error: "Device tidak terautentikasi" });
     }
-    await expireIdleSessions();
+    await expireRemoteSessions();
 
     const result = await db.query(
       `SELECT rs.*, u.username as agent_username, u.full_name as agent_full_name
@@ -145,7 +164,7 @@ const remoteRoutes: FastifyPluginAsync = async (fastify) => {
       return reply.status(403).send({ error: "Akses ditolak" });
     }
 
-    await expireIdleSessions();
+    await expireRemoteSessions();
 
     const updateCols: string[] = [];
     const updateVals: any[] = [];
@@ -202,6 +221,19 @@ const remoteRoutes: FastifyPluginAsync = async (fastify) => {
       return reply.status(404).send({ error: "Device belum terdaftar di aplikasi desktop" });
     }
 
+    // Remote desktop (capture + kontrol) baru diimplementasi untuk macOS.
+    // Tolak device lain di server juga — bukan cuma Andong di UI.
+    const spec = await db.query(
+      "SELECT os_name FROM device_specs WHERE device_id = $1",
+      [device_id]
+    );
+    const osName = String(spec.rows[0]?.os_name || "").toLowerCase();
+    if (osName && !osName.includes("darwin") && !osName.includes("mac")) {
+      return reply.status(400).send({
+        error: "Remote desktop hanya tersedia untuk PC macOS",
+      });
+    }
+
     // Cek apakah ada session pending/active untuk device ini
     const existing = await db.query(
       `SELECT id, status FROM remote_sessions
@@ -249,7 +281,7 @@ const remoteRoutes: FastifyPluginAsync = async (fastify) => {
   fastify.get("/", async (request, reply) => {
     const agent = await requireAgent(request);
     if (!agent) return reply.status(401).send({ error: "Unauthorized" });
-    await expireIdleSessions();
+    await expireRemoteSessions();
 
     const { device_id, status, limit = "50", page = "1" } = request.query as {
       device_id?: string;
@@ -288,7 +320,7 @@ const remoteRoutes: FastifyPluginAsync = async (fastify) => {
     if (!agent) return reply.status(401).send({ error: "Unauthorized" });
 
     const { sessionId } = request.params as { sessionId: string };
-    await expireIdleSessions();
+    await expireRemoteSessions();
     const result = await db.query(
       `UPDATE remote_sessions SET status = 'ended', ended_at = $1, last_activity = CURRENT_TIMESTAMP WHERE id = $2 AND status IN ('pending', 'accepted', 'active') RETURNING *`,
       [new Date().toISOString(), sessionId]

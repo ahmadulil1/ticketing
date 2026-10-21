@@ -13,12 +13,24 @@ const FRAME_JPEG_QUALITY: u32 = 50;
 /// `remote-frame`. Frontend meneruskannya via WebSocket ke web viewer.
 ///
 /// Alur: screencapture (PNG native) -> sips (resize + JPEG q50) -> base64.
+///
+/// CATATAN: implementasi ini khusus macOS (screencapture + sips).
+/// Di platform lain fungsi ini mengembalikan error yang jelas supaya UI
+/// menampilkan "Remote hanya tersedia di macOS" alih-alih gagal diam-diam.
 #[tauri::command]
 pub async fn remote_capture_and_send(
     app: AppHandle,
     state: State<'_, RemoteControlState>,
     session_id: String,
 ) -> Result<(), String> {
+    #[cfg(not(target_os = "macos"))]
+    {
+        let _ = (&app, &state, &session_id);
+        return Err("Remote desktop baru tersedia di macOS".to_string());
+    }
+
+    #[cfg(target_os = "macos")]
+    {
     // Cek apakah session masih aktif
     if !state.has_session(&session_id) {
         return Err(format!("Session {} tidak aktif", session_id));
@@ -101,6 +113,7 @@ pub async fn remote_capture_and_send(
     let _ = app.emit("remote-frame", payload);
 
     Ok(())
+    }
 }
 
 /// Baca dimensi PNG dari header file (tanpa library gambar).

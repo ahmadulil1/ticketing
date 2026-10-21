@@ -588,3 +588,16 @@ body {
 .remote-viewer-status { font-size: 0.75rem; padding: 2px 8px; border-radius: 4px; background: var(--surface-3); color: var(--text-2); margin-left: 0.5rem; }
 .remote-viewer-status::before { content: ""; display: inline-block; width: 6px; height: 6px; border-radius: 50%; margin-right: 4px; }
 .remote-viewer-overlay .remote-viewer-status::before { background: var(--success); }
+
+/* Riwayat sesi remote */
+.remote-history { display: flex; flex-direction: column; gap: 0.375rem; }
+.remote-history-row { display: flex; align-items: center; gap: 0.75rem; padding: 0.5rem 0.625rem; background: var(--surface-2); border: 1px solid var(--border-soft); border-radius: 8px; font-size: 0.8125rem; }
+.remote-status { display: inline-flex; align-items: center; padding: 2px 8px; border-radius: 999px; font-size: 0.6875rem; font-weight: 700; white-space: nowrap; background: var(--surface-3); color: var(--text-2); }
+.remote-status-accepted, .remote-status-active { background: var(--primary-tint); color: var(--primary-strong); }
+.remote-status-pending { background: #fff6e5; color: #a86a00; }
+.remote-status-rejected { background: #fdecec; color: var(--danger-strong); }
+.remote-status-ended { background: var(--surface-3); color: var(--text-2); }
+.remote-status-timeout { background: #f3e8ff; color: #6b3fa0; }
+.remote-agent { font-weight: 600; color: var(--text); min-width: 110px; }
+.remote-date { color: var(--text-2); font-size: 0.75rem; white-space: nowrap; }
+.remote-note { color: var(--text-3); font-size: 0.6875rem; margin-left: auto; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 180px; }
