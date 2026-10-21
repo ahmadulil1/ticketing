@@ -193,7 +193,7 @@ const ticketRoutes: FastifyPluginAsync = async (fastify) => {
       for (const ticket of result.rows) {
         const unread = await db.query(
           `SELECT COUNT(*) FROM messages 
-           WHERE ticket_id = $1 AND sender_role != 'user' AND created_at > 
+           WHERE ticket_id = $1 AND sender_role != 'user' AND message_type <> 'internal' AND created_at > 
            COALESCE((SELECT MAX(created_at) FROM messages WHERE ticket_id = $1 AND sender_id = $2), '1970-01-01')`,
           [ticket.id, user.id]
         );

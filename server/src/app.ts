@@ -94,10 +94,15 @@ export async function buildApp() {
           const ticketId = m[1];
           const deviceId = m[2] || null;
           const data = JSON.parse(payload);
+          // Catatan internal hanya untuk agent/admin. Jangan dikirim ke tamu,
+          // baik lewat push WS maupun refresh badge __list__.
+          const isInternal =
+            data.type === "new_message" && data.message?.message_type === "internal";
           const targets = subs.get(ticketId);
           let sent = 0;
           if (targets) {
             for (const socket of targets) {
+              if (isInternal && !socket.isAgent) continue;
               if (socket.readyState === 1) {
                 socket.send(JSON.stringify({ ...data, ticketId, deviceId }));
                 sent++;
@@ -109,6 +114,7 @@ export async function buildApp() {
             if (listers) {
               for (const socket of listers) {
                 const allowed = socket.isAgent || (socket.deviceId && socket.deviceId === deviceId);
+                if (isInternal && !socket.isAgent) continue;
                 if (socket.readyState === 1 && allowed) {
                   socket.send(JSON.stringify({ ...data, ticketId, deviceId }));
                   sent++;

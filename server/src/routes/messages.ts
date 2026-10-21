@@ -44,11 +44,14 @@ const messageRoutes: FastifyPluginAsync = async (fastify) => {
     }
 
     const offset = (parseInt(page) - 1) * parseInt(limit);
+    // Catatan internal hanya untuk agent/admin — jangan pernah terkirim ke tamu.
+    const hideInternal = user.role === "user" ? "AND m.message_type <> 'internal'" : "";
     const result = await db.query(
       `SELECT m.*, u.username as sender_name, u.full_name as sender_full_name
        FROM messages m
        LEFT JOIN users u ON m.sender_id = u.id
        WHERE m.ticket_id = $1
+       ${hideInternal}
        ORDER BY m.created_at ASC
        LIMIT $2 OFFSET $3`,
       [ticketId, parseInt(limit), offset]
@@ -65,10 +68,12 @@ const messageRoutes: FastifyPluginAsync = async (fastify) => {
 
     // Tandai semua pesan dari pihak lain yang belum dibaca
     const otherRole = user.role === "user" ? "agent" : "user";
+    // Catatan internal tidak pernah masuk hitungan tamu
+    const hideInternal = user.role === "user" ? "AND message_type <> 'internal'" : "";
     await db.query(
       `UPDATE messages
        SET read_at = CURRENT_TIMESTAMP
-       WHERE ticket_id = $1 AND sender_role = $2 AND read_at IS NULL`,
+       WHERE ticket_id = $1 AND sender_role = $2 AND read_at IS NULL ${hideInternal}`,
       [ticketId, otherRole]
     );
 
@@ -98,11 +103,14 @@ const messageRoutes: FastifyPluginAsync = async (fastify) => {
     }
 
     // admin/agent: hitung pesan dari user; guest: hitung pesan dari agent di tiket device-nya
+    // Catatan internal tidak dihitung untuk tamu (hanya kebocoran jumlah)
+    const hideInternal = deviceId ? "AND m.message_type <> 'internal'" : "";
     const result = await db.query(
       `SELECT m.ticket_id, COUNT(*)::int AS unread
        FROM messages m
        WHERE m.read_at IS NULL
          AND m.sender_role = $1
+         ${hideInternal}
          ${deviceId ? "AND m.ticket_id IN (SELECT id FROM tickets WHERE device_id = $2)" : ""}
        GROUP BY m.ticket_id`,
       deviceId ? ["agent", deviceId] : ["user"]
@@ -227,7 +235,10 @@ const messageRoutes: FastifyPluginAsync = async (fastify) => {
     
     // Determine sender_role
     const senderRole = user.role === "user" ? "user" : "agent";
-    const msgType = user.role === "agent" && message_type === "internal" ? "internal" : "public";
+    // Catatan internal boleh dibuat agent DAN admin; hanya tamu yang dipaksa public.
+    // ponytail: sebelumnya hanya role 'agent' — catatan internal admin diam-diam
+    // jadi public sehingga terlihat tamu (bocor). Pakai "role !== user".
+    const msgType = user.role !== "user" && message_type === "internal" ? "internal" : "public";
 
     // sender_id: null untuk guest (identity device, bukan user terdaftar)
     const realSenderId = user.role === "user" ? null : user.id;

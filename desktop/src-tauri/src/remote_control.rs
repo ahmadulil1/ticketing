@@ -16,6 +16,10 @@ pub struct RemoteSession {
     pub session_id: String,
     pub device_id: String,
     pub agent_name: String,
+    /// Ukuran layar asli (px) saat capture terakhir. Dipakai untuk
+    /// memetakan koordinat ternormalisasi (0..1) dari viewer ke absolut.
+    pub screen_w: f64,
+    pub screen_h: f64,
 }
 
 pub struct RemoteControlState {
@@ -31,6 +35,23 @@ impl RemoteControlState {
 
     pub fn has_session(&self, session_id: &str) -> bool {
         self.sessions.lock().unwrap().contains_key(session_id)
+    }
+
+    /// Simpan ukuran layar hasil capture terakhir (untuk pemetaan koordinat).
+    pub fn set_screen_size(&self, session_id: &str, w: f64, h: f64) {
+        if let Some(s) = self.sessions.lock().unwrap().get_mut(session_id) {
+            s.screen_w = w;
+            s.screen_h = h;
+        }
+    }
+
+    /// Ambil ukuran layar aktif untuk session (fallback 1920x1080).
+    pub fn screen_size(&self, session_id: &str) -> (f64, f64) {
+        let sessions = self.sessions.lock().unwrap();
+        match sessions.get(session_id) {
+            Some(s) if s.screen_w > 0.0 && s.screen_h > 0.0 => (s.screen_w, s.screen_h),
+            _ => (1920.0, 1080.0),
+        }
     }
 }
 
@@ -57,6 +78,8 @@ pub async fn remote_respond(
                 session_id: session_id.clone(),
                 device_id,
                 agent_name,
+                screen_w: 0.0,
+                screen_h: 0.0,
             },
         );
         log_info!("session {} diterima dan diaktifkan", session_id);

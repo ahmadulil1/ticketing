@@ -121,6 +121,36 @@ export default function PetOverlay({ onClick }: Props) {
   }, []);
 
   // -------------------------------------------------------------------
+  // Izin sistem untuk remote desktop (macOS): Accessibility + Screen Recording
+  // -------------------------------------------------------------------
+  const [permMissing, setPermMissing] = useState<string[]>([]);
+
+  useEffect(() => {
+    let alive = true;
+    const check = async () => {
+      const p = await tauriInvoke("remote_check_permissions");
+      if (!alive || !p) return;
+      const missing: string[] = [];
+      if (!p.accessibility) missing.push("accessibility");
+      if (!p.screen_recording) missing.push("screen_recording");
+      setPermMissing(missing);
+    };
+    check();
+    const id = setInterval(check, 30000);
+    return () => { alive = false; clearInterval(id); };
+  }, []);
+
+  const handleFixPermissions = async () => {
+    const p = await tauriInvoke("remote_check_permissions");
+    if (p && !p.screen_recording) {
+      await tauriInvoke("remote_request_screen_recording");
+    }
+    if (p && !p.accessibility) {
+      await tauriInvoke("remote_open_accessibility_settings");
+    }
+  };
+
+  // -------------------------------------------------------------------
   // Daftarkan device secret ke server (sekali, idempotent)
   // -------------------------------------------------------------------
   useEffect(() => {
@@ -189,7 +219,10 @@ export default function PetOverlay({ onClick }: Props) {
               case "remote_input":
                 // Input dari web viewer: injeksi ke OS
                 if (data.session_id === remoteSessionId && remoteState === "active") {
-                  tauriInvoke("remote_inject_input", data.input);
+                  tauriInvoke("remote_inject_input", {
+                    session_id: remoteSessionId,
+                    input: data.input,
+                  });
                 }
                 break;
               default:
@@ -510,6 +543,15 @@ export default function PetOverlay({ onClick }: Props) {
         )}
       </div>
       {unreadCount > 0 && <div className="pet-badge">{unreadCount}</div>}
+      {permMissing.length > 0 && (
+        <button
+          className="pet-perm-warning"
+          onClick={handleFixPermissions}
+          title="Remote desktop butuh izin Accessibility & Screen Recording. Klik untuk memperbaiki."
+        >
+          <AlertCircle size={13} /> Izin
+        </button>
+      )}
       {showMenu && (
         <div className="pet-context-menu">
           <button onClick={() => { onClick(); tauriShowMini(); setShowMenu(false); }}>

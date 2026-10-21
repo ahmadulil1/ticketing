@@ -79,7 +79,8 @@ export default function DeviceDetail() {
           try {
             const data = JSON.parse(new TextDecoder().decode(ev.data as ArrayBuffer));
             if (data.type === "remote_frame" && data.session_id === remoteSession?.id) {
-              setFrameData(`data:image/png;base64,${data.data}`);
+              const mime = data.format === "jpeg" ? "image/jpeg" : "image/png";
+              setFrameData(`data:${mime};base64,${data.data}`);
             }
           } catch {}
         };
@@ -120,23 +121,28 @@ export default function DeviceDetail() {
     [remoteSession]
   );
 
+  // Koordinat ternormalisasi (0..1) relatif area gambar, supaya viewer
+  // tak perlu tahu ukuran layar asli (frame yg dikirim sudah di-downscale).
+  const toNorm = (e: React.MouseEvent) => {
+    const rect = e.currentTarget.getBoundingClientRect();
+    const x = rect.width > 0 ? (e.clientX - rect.left) / rect.width : 0;
+    const y = rect.height > 0 ? (e.clientY - rect.top) / rect.height : 0;
+    return { x, y };
+  };
+
   // Mouse move handler
   const handleMouseMove = useCallback(
     (e: React.MouseEvent) => {
-      const rect = e.currentTarget.getBoundingClientRect();
-      const x = e.clientX - rect.left;
-      const y = e.clientY - rect.top;
-      sendInput({ type: "MouseMove", x, y });
+      const { x, y } = toNorm(e);
+      sendInput({ type: "MouseMove", x, y, norm: true });
     },
     [sendInput]
   );
 
   const handleMouseDown = useCallback(
     (e: React.MouseEvent) => {
-      const rect = e.currentTarget.getBoundingClientRect();
-      const x = e.clientX - rect.left;
-      const y = e.clientY - rect.top;
-      sendInput({ type: "MouseDown", button: e.button === 2 ? "right" : "left", x, y });
+      const { x, y } = toNorm(e);
+      sendInput({ type: "MouseDown", button: e.button === 2 ? "right" : "left", x, y, norm: true });
       e.preventDefault();
     },
     [sendInput]
@@ -144,10 +150,8 @@ export default function DeviceDetail() {
 
   const handleMouseUp = useCallback(
     (e: React.MouseEvent) => {
-      const rect = e.currentTarget.getBoundingClientRect();
-      const x = e.clientX - rect.left;
-      const y = e.clientY - rect.top;
-      sendInput({ type: "MouseUp", button: e.button === 2 ? "right" : "left", x, y });
+      const { x, y } = toNorm(e);
+      sendInput({ type: "MouseUp", button: e.button === 2 ? "right" : "left", x, y, norm: true });
     },
     [sendInput]
   );

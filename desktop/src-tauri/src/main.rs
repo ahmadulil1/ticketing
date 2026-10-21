@@ -8,6 +8,7 @@ mod bg_sample;
 mod remote_control;
 mod remote_stream;
 mod remote_input;
+mod remote_permissions;
 
 use std::sync::{Mutex, OnceLock};
 use tauri::{Listener, Manager};
@@ -104,6 +105,9 @@ pub fn run() {
             remote_control::remote_is_active,
             remote_stream::remote_capture_and_send,
             remote_input::remote_inject_input,
+            remote_permissions::remote_check_permissions,
+            remote_permissions::remote_request_screen_recording,
+            remote_permissions::remote_open_accessibility_settings,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
