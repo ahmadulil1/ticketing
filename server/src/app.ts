@@ -151,8 +151,15 @@ export async function buildApp() {
       const socket: any = connection.socket ?? connection;
       socket.on("message", async (message: Buffer) => {
         try {
-          if (message.length > 4096) return socket.close(1009, "Pesan terlalu besar");
           const data = JSON.parse(message.toString());
+          // Frame layar (base64 PNG) jauh lebih besar dari pesan chat biasa.
+          if (data.type === "remote_frame") {
+            if (message.length > 20 * 1024 * 1024) {
+              return socket.close(1009, "Frame terlalu besar");
+            }
+          } else if (message.length > 4096) {
+            return socket.close(1009, "Pesan terlalu besar");
+          }
 
           // Chat signaling subscribe: ticket:{ticketId} or __list__
           if (data.type === "subscribe" && data.ticketId) {
@@ -184,8 +191,10 @@ export async function buildApp() {
 
           // Remote desktop signaling subscribe: remote:{deviceId}
           if (data.type === "subscribe-remote" && data.deviceId) {
+            const deviceId = typeof data.deviceId === "string" ? data.deviceId : "";
+
+            // Agent/admin (web viewer): wajib JWT role agent/admin
             let isAgent = false;
-            let deviceId = "";
             if (data.token) {
               try {
                 const user = fastify.jwt.verify(data.token) as { role?: string };
@@ -193,13 +202,16 @@ export async function buildApp() {
               } catch {}
             }
             if (data.isAgent === true) {
-              isAgent = true;
-              deviceId = data.deviceId;
+              if (!isAgent) return socket.close(1008, "Akses ditolak");
             } else {
-              // Agent desktop: deviceId harus cocok dengan device yang mengklaim
-              deviceId = data.deviceId;
+              // Agent desktop: deviceId + deviceSecret harus cocok
+              const secret = typeof data.deviceSecret === "string" ? data.deviceSecret : "";
+              const cred = await db.query(
+                "SELECT 1 FROM device_credentials WHERE device_id = $1 AND device_secret = $2",
+                [deviceId, secret]
+              );
+              if (!cred.rows[0]) return socket.close(1008, "Device tidak terautentikasi");
             }
-            if (!isAgent && !deviceId) return socket.close(1008, "Autentikasi wajib");
 
             socket.isAgent = isAgent;
             socket.deviceId = deviceId || null;
@@ -207,6 +219,64 @@ export async function buildApp() {
             if (!subs.has(channel)) subs.set(channel, new Set());
             subs.get(channel)!.add(socket);
             console.log(`[ws-remote] subscribed ${channel} (subs: ${subs.size})`);
+
+            // Catch-up: device yang baru subscribe mungkin kelewatan
+            // remote_request yang dikirim sebelum device online.
+            if (!isAgent) {
+              try {
+                const pending = await db.query(
+                  `SELECT id, device_id, agent_id, agent_name, status, started_at
+                   FROM remote_sessions
+                   WHERE device_id = $1 AND status = 'pending'
+                   ORDER BY started_at DESC LIMIT 5`,
+                  [deviceId]
+                );
+                for (const row of pending.rows) {
+                  socket.send(
+                    JSON.stringify({
+                      type: "remote_request",
+                      sessionId: row.id,
+                      device_id: row.device_id,
+                      agent_id: row.agent_id,
+                      agent_name: row.agent_name,
+                      timestamp: row.started_at,
+                    })
+                  );
+                }
+                if (pending.rows.length) {
+                  console.log(`[ws-remote] catch-up ${pending.rows.length} pending untuk ${deviceId}`);
+                }
+              } catch (e) {
+                console.error("[ws-remote] catch-up error:", e);
+              }
+            }
+            return;
+          }
+
+          // -----------------------------------------------------------------
+          // Relay frame (device -> agent) dan input (agent -> device)
+          // Kirim ke semua anggota channel remote:{deviceId} kecuali pengirim.
+          // -----------------------------------------------------------------
+          if (data.type === "remote_frame" || data.type === "remote_input") {
+            if (!socket.deviceId) return socket.close(1008, "Belum subscribe");
+            // Frame hanya boleh dikirim device; input hanya boleh dari agent
+            if (data.type === "remote_frame" && socket.isAgent) {
+              return socket.close(1008, "Akses ditolak");
+            }
+            if (data.type === "remote_input" && !socket.isAgent) {
+              return socket.close(1008, "Akses ditolak");
+            }
+            const targets = subs.get(`remote:${socket.deviceId}`);
+            let sent = 0;
+            if (targets) {
+              for (const target of targets) {
+                if (target !== socket && target.readyState === 1) {
+                  target.send(JSON.stringify(data));
+                  sent++;
+                }
+              }
+            }
+            console.log(`[ws-remote] relay ${data.type} -> ${sent} clients`);
             return;
           }
         } catch (e) {

@@ -24,10 +24,8 @@ gethostname = "0.5"
 sysinfo = "0.33"
 tokio = { version = "1", features = ["full"] }
 
-# Remote desktop: screen capture + input injection + JPEG encoding
+# Remote desktop: screen capture (screencapture CLI) + input injection (CGEventPost)
 core-graphics = "0.23"
-core-foundation = "0.9"
-image = { version = "0.25", features = ["jpeg"] }
 base64 = "0.22"
 
 [target."cfg(windows)".dependencies]

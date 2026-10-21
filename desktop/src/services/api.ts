@@ -16,7 +16,11 @@ api.interceptors.request.use((config) => {
 api.interceptors.response.use(
   (res) => res,
   (err) => {
-    if (err.response?.status === 401) {
+    // Endpoint remote boleh dipanggil guest (pakai device secret).
+    // Jangan paksa logout kalau 401 datang dari sana.
+    const url = err.config?.url || "";
+    const isRemote = url.includes("/remote/");
+    if (err.response?.status === 401 && !isRemote) {
       localStorage.removeItem("token");
       localStorage.removeItem("user");
       window.location.href = "/login";

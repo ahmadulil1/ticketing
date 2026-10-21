@@ -10,7 +10,8 @@ import {
 } from "lucide-react";
 import { useUnread } from "../hooks/useUnread";
 import { useRealtime } from "../hooks/useRealtime";
-import { getDeviceId } from "../services/device";
+import { getDeviceId, getDeviceSecret, registerDeviceSecret } from "../services/device";
+import api from "../services/api";
 import petGif from "../assets/pet.gif";
 
 // Tauri event listener wrapper
@@ -120,6 +121,13 @@ export default function PetOverlay({ onClick }: Props) {
   }, []);
 
   // -------------------------------------------------------------------
+  // Daftarkan device secret ke server (sekali, idempotent)
+  // -------------------------------------------------------------------
+  useEffect(() => {
+    registerDeviceSecret();
+  }, []);
+
+  // -------------------------------------------------------------------
   // WebSocket signaling untuk remote desktop (channel remote:{deviceId})
   // -------------------------------------------------------------------
   useEffect(() => {
@@ -141,11 +149,13 @@ export default function PetOverlay({ onClick }: Props) {
         ws.onopen = () => {
           console.log("[pet-remote] WS connected");
           wsRef.current = ws;
-          // Subscribe ke channel remote untuk device ini (agent mode)
+          // Subscribe ke channel remote untuk device ini (agent mode).
+          // deviceSecret wajib cocok dengan yang terdaftar di server.
           ws?.send(
             JSON.stringify({
               type: "subscribe-remote",
               deviceId,
+              deviceSecret: getDeviceSecret(),
               isAgent: false,
             })
           );
@@ -266,6 +276,16 @@ export default function PetOverlay({ onClick }: Props) {
         agent_name: remoteAgentName || "Agent",
         accept: true,
       });
+      // Kabari server status sesi jadi accepted
+      try {
+        await api.patch(`/remote/${remoteSessionId}`, {
+          status: "accepted",
+          device_id: deviceId,
+          device_secret: getDeviceSecret(),
+        });
+      } catch (e) {
+        console.error("[pet] patch session accepted gagal:", e);
+      }
       setRemoteState("active");
       setRemotePending(false);
     } catch (e) {
@@ -279,7 +299,17 @@ export default function PetOverlay({ onClick }: Props) {
     try {
       await tauriInvoke("remote_respond", {
         session_id: remoteSessionId,
+        device_id: deviceId,
+        agent_name: remoteAgentName || "Agent",
         accept: false,
+      });
+    } catch {}
+    // Kabari server sesi ditolak
+    try {
+      await api.patch(`/remote/${remoteSessionId}`, {
+        status: "rejected",
+        device_id: deviceId,
+        device_secret: getDeviceSecret(),
       });
     } catch {}
     setRemoteState("idle");
@@ -292,6 +322,14 @@ export default function PetOverlay({ onClick }: Props) {
     try {
       await tauriInvoke("remote_end_session", {
         session_id: remoteSessionId,
+      });
+    } catch {}
+    // Kabari server sesi diakhiri user
+    try {
+      await api.patch(`/remote/${remoteSessionId}`, {
+        status: "ended",
+        device_id: deviceId,
+        device_secret: getDeviceSecret(),
       });
     } catch {}
     setRemoteState("idle");

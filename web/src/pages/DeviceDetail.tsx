@@ -68,6 +68,7 @@ export default function DeviceDetail() {
             JSON.stringify({
               type: "subscribe-remote",
               deviceId,
+              token: localStorage.getItem("token"),
               isAgent: true,
             })
           );

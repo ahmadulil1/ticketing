@@ -156,6 +156,13 @@ export async function initDb() {
       CREATE INDEX IF NOT EXISTS idx_remote_sessions_device ON remote_sessions(device_id, started_at DESC);
       CREATE INDEX IF NOT EXISTS idx_remote_sessions_agent ON remote_sessions(agent_id);
       ALTER TABLE remote_sessions ADD COLUMN IF NOT EXISTS last_activity TIMESTAMP DEFAULT CURRENT_TIMESTAMP;
+
+      -- Rahasia per device: dipakai untuk auth WS + REST remote
+      CREATE TABLE IF NOT EXISTS device_credentials (
+        device_id VARCHAR(100) PRIMARY KEY,
+        device_secret VARCHAR(100) NOT NULL,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      );
     `);
     console.log("Database tables created");
   } finally {

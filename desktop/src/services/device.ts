@@ -2,6 +2,7 @@ import api from "./api";
 
 const DEVICE_KEY = "ticketing_device_id";
 const DEVICE_NAME_KEY = "ticketing_device_name";
+const DEVICE_SECRET_KEY = "ticketing_device_secret";
 
 export function getDeviceId(): string {
   let id = localStorage.getItem(DEVICE_KEY);
@@ -10,6 +11,36 @@ export function getDeviceId(): string {
     localStorage.setItem(DEVICE_KEY, id);
   }
   return id;
+}
+
+/**
+ * Rahasia device untuk autentikasi remote desktop.
+ * Dibuat sekali lalu disimpan permanen.
+ */
+export function getDeviceSecret(): string {
+  let secret = localStorage.getItem(DEVICE_SECRET_KEY);
+  if (!secret) {
+    // 48 char hex = 24 byte entropy
+    const bytes = new Uint8Array(24);
+    crypto.getRandomValues(bytes);
+    secret = Array.from(bytes, (b) => b.toString(16).padStart(2, "0")).join("");
+    localStorage.setItem(DEVICE_SECRET_KEY, secret);
+  }
+  return secret;
+}
+
+/** Daftarkan device secret ke server (idempotent, best-effort). */
+export async function registerDeviceSecret(): Promise<boolean> {
+  try {
+    await api.post("/remote/register", {
+      device_id: getDeviceId(),
+      device_secret: getDeviceSecret(),
+    });
+    return true;
+  } catch (e) {
+    console.error("[device] register secret gagal:", e);
+    return false;
+  }
 }
 
 export async function getDeviceName(): Promise<string> {
