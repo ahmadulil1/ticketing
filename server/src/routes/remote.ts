@@ -206,6 +206,15 @@ const remoteRoutes: FastifyPluginAsync = async (fastify) => {
     const agent = await requireAgent(request);
     if (!agent) return reply.status(401).send({ error: "Unauthorized" });
 
+    // Akun bisa saja sudah dihapus (token masih valid, user gone). Kalau tak
+    // dicek, insert kena FK error -> user dapat 500 mentah.
+    const agentRow = await db.query("SELECT id FROM users WHERE id = $1", [agent.id]);
+    if (!agentRow.rows[0]) {
+      return reply
+        .status(401)
+        .send({ error: "Akun tidak ditemukan lagi, silakan login ulang" });
+    }
+
     const { device_id, client_ip } = request.body as {
       device_id?: string;
       client_ip?: string;
