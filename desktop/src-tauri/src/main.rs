@@ -10,6 +10,8 @@ mod remote_stream;
 mod remote_input;
 mod remote_permissions;
 mod device_identity;
+#[cfg(target_os = "windows")]
+mod remote_windows;
 
 use std::sync::{Mutex, OnceLock};
 use tauri::{Listener, Manager};

@@ -51,20 +51,27 @@ pub enum RemoteInput {
     },
 }
 
-/// Terima peristiwa input dari frontend, lakukan inject ke OS via CGEventPost.
+/// Terima peristiwa input dari frontend, lakukan inject ke OS.
 ///
-/// CATATAN: implementasi ini khusus macOS. Di platform lain mengembalikan
-/// error yang jelas (bukan gagal diam-diam).
+/// CATATAN: implementasi ini untuk macOS (CGEventPost) dan Windows
+/// (SendInput). Di platform lain mengembalikan error yang jelas (bukan gagal
+/// diam-diam).
 #[tauri::command]
 pub async fn remote_inject_input(
     state: State<'_, RemoteControlState>,
     session_id: String,
     input: RemoteInput,
 ) -> Result<(), String> {
-    #[cfg(not(target_os = "macos"))]
+    #[cfg(not(any(target_os = "macos", target_os = "windows")))]
     {
         let _ = (&state, &session_id, &input);
-        return Err("Remote desktop baru tersedia di macOS".to_string());
+        return Err("Remote desktop baru tersedia di macOS dan Windows".to_string());
+    }
+
+    #[cfg(target_os = "windows")]
+    {
+    let (screen_w, screen_h) = state.screen_size(&session_id);
+    return crate::remote_windows::inject(&input, screen_w, screen_h);
     }
 
     #[cfg(target_os = "macos")]

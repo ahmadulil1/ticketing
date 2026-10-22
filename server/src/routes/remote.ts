@@ -230,16 +230,23 @@ const remoteRoutes: FastifyPluginAsync = async (fastify) => {
       return reply.status(404).send({ error: "Device belum terdaftar di aplikasi desktop" });
     }
 
-    // Remote desktop (capture + kontrol) baru diimplementasi untuk macOS.
+    // Remote desktop (capture + kontrol) diimplementasi untuk macOS + Windows.
     // Tolak device lain di server juga — bukan cuma Andong di UI.
     const spec = await db.query(
       "SELECT os_name FROM device_specs WHERE device_id = $1",
       [device_id]
     );
     const osName = String(spec.rows[0]?.os_name || "").toLowerCase();
-    if (osName && !osName.includes("darwin") && !osName.includes("mac")) {
+    const isSupportedOs =
+      !osName ||
+      osName.includes("darwin") ||
+      osName.includes("mac") ||
+      osName.includes("windows") ||
+      osName.includes("win32") ||
+      osName.includes("win64");
+    if (!isSupportedOs) {
       return reply.status(400).send({
-        error: "Remote desktop hanya tersedia untuk PC macOS",
+        error: "Remote desktop hanya tersedia untuk PC macOS dan Windows",
       });
     }
 

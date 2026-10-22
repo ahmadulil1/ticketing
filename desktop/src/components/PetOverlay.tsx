@@ -85,8 +85,10 @@ export default function PetOverlay({ onClick }: Props) {
   const [remoteSessionId, setRemoteSessionId] = useState<string>("");
   const [remoteAgentName, setRemoteAgentName] = useState<string>("");
   const [remotePending, setRemotePending] = useState(false);
-  // "macos" | "windows" | "unknown" — remote desktop baru didukung macOS
+  // "macos" | "windows" | "unknown" — remote desktop didukung macOS + Windows
   const [platform, setPlatform] = useState<string>("unknown");
+  // Platform yang punya implementasi remote desktop (capture + inject).
+  const isRemotePlatform = platform === "macos" || platform === "windows";
 
   const deviceId = getDeviceId();
   const wsRef = useRef<WebSocket | null>(null);
@@ -278,7 +280,7 @@ export default function PetOverlay({ onClick }: Props) {
   // Capture loop: saat remote aktif, tangkap layar terus menerus
   // -------------------------------------------------------------------
   useEffect(() => {
-    if (remoteState === "active" && remoteSessionId && platform === "macos") {
+    if (remoteState === "active" && remoteSessionId && isRemotePlatform) {
       let lastNote = "";
       captureLoopRef.current = setInterval(async () => {
         try {
@@ -310,7 +312,7 @@ export default function PetOverlay({ onClick }: Props) {
         captureLoopRef.current = null;
       }
     }
-  }, [remoteState, remoteSessionId, platform]);
+  }, [remoteState, remoteSessionId, isRemotePlatform]);
 
   // -------------------------------------------------------------------
   // Listener Tauri event `remote-frame`: terima frame dari Rust, kirim via WS
@@ -515,7 +517,7 @@ export default function PetOverlay({ onClick }: Props) {
       >
         <span className="pet-remote-consent-text">
           <AlertCircle size={13} />
-          {platform === "macos" ? (
+          {isRemotePlatform ? (
             <>
               <strong>{remoteAgentName}</strong> minta akses remote
             </>
@@ -524,7 +526,7 @@ export default function PetOverlay({ onClick }: Props) {
           )}
         </span>
         <div className="pet-remote-consent-actions">
-          {platform !== "macos" ? (
+          {!isRemotePlatform ? (
             <button
               className="pet-remote-btn reject"
               onClick={(e) => {

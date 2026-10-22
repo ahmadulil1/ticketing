@@ -33,9 +33,15 @@ export default function RemoteControl({
   const [sessionEnded, setSessionEnded] = useState(false);
   const wsRef = useRef<WebSocket | null>(null);
 
-  // Remote desktop (capture + kontrol) baru diimplementasi untuk macOS.
+  // Remote desktop (capture + kontrol) diimplementasi untuk macOS + Windows.
   const os = (osName || "").toLowerCase();
-  const supported = !os || os.includes("darwin") || os.includes("mac");
+  const supported =
+    !os ||
+    os.includes("darwin") ||
+    os.includes("mac") ||
+    os.includes("windows") ||
+    os.includes("win32") ||
+    os.includes("win64");
 
   // -------------------------------------------------------------------
   // WebSocket viewer: terima frame + kirim input ke desktop
@@ -247,7 +253,7 @@ export default function RemoteControl({
 
   const btnTitle = supported
     ? "Kontrol layar PC ini dari web admin"
-    : "Remote desktop baru tersedia untuk PC macOS";
+    : "Remote desktop baru tersedia untuk PC macOS dan Windows";
 
   return (
     <>
@@ -276,7 +282,7 @@ export default function RemoteControl({
           ) : (
             <>
               <Video size={16} /> {label || "Remote Desktop"}
-              {!supported && " (macOS saja)"}
+              {!supported && " (macOS/Windows saja)"}
             </>
           )}
         </button>

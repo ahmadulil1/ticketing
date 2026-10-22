@@ -7,7 +7,7 @@ import { Download, Monitor, Apple, ExternalLink, ChevronDown } from "lucide-reac
  * - Versi terbaru dibaca dari manifest updater (/downloads/latest.json),
  *   jadi label selalu sama dengan yang bakalan di-install user.
  * - Link stable: /download (Windows, redirect ke installer terbaru),
- *   /downloads/Ticketing.dmg (macOS), GitHub Release (Linux/源码).
+ *   /downloads/Ticketing.dmg (macOS), GitHub Release (Linux/sumber kode).
  */
 
 const API = (import.meta.env.VITE_API_URL as string | undefined) || "";

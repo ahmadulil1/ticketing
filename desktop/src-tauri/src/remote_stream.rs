@@ -1,12 +1,13 @@
 use serde_json::json;
-use std::process::Command;
 use tauri::{AppHandle, Emitter, State};
 use crate::remote_control::RemoteControlState;
 
 /// Lebar maksimum frame (px). Layar 1920px di-downscale ke 1280px supaya
 /// payload base64 turun dari ~1.2MB (PNG) jadi ~120KB (JPEG q50).
+#[cfg(target_os = "macos")]
 const FRAME_MAX_WIDTH: u32 = 1280;
 /// Kualitas JPEG 0-100. 50 masih terbaca jelas untuk keperluan remote.
+#[cfg(target_os = "macos")]
 const FRAME_JPEG_QUALITY: u32 = 50;
 
 /// Tangkap layar penuh, kompres ke JPEG, kirim ke frontend lewat Tauri event
@@ -14,23 +15,49 @@ const FRAME_JPEG_QUALITY: u32 = 50;
 ///
 /// Alur: screencapture (PNG native) -> sips (resize + JPEG q50) -> base64.
 ///
-/// CATATAN: implementasi ini khusus macOS (screencapture + sips).
-/// Di platform lain fungsi ini mengembalikan error yang jelas supaya UI
-/// menampilkan "Remote hanya tersedia di macOS" alih-alih gagal diam-diam.
+/// CATATAN: implementasi ini untuk macOS (screencapture + sips) dan Windows
+/// (GDI + JPEG encoder). Di platform lain fungsi ini mengembalikan error yang
+/// jelas supaya UI menampilkan "Remote hanya tersedia di macOS/Windows"
+/// alih-alih gagal diam-diam.
 #[tauri::command]
 pub async fn remote_capture_and_send(
     app: AppHandle,
     state: State<'_, RemoteControlState>,
     session_id: String,
 ) -> Result<(), String> {
-    #[cfg(not(target_os = "macos"))]
+    #[cfg(not(any(target_os = "macos", target_os = "windows")))]
     {
         let _ = (&app, &state, &session_id);
-        return Err("Remote desktop baru tersedia di macOS".to_string());
+        return Err("Remote desktop baru tersedia di macOS dan Windows".to_string());
+    }
+
+    #[cfg(target_os = "windows")]
+    {
+    if !state.has_session(&session_id) {
+        return Err(format!("Session {} tidak aktif", session_id));
+    }
+
+    let (data, screen_w, screen_h) = crate::remote_windows::capture_frame()?;
+    state.set_screen_size(&session_id, screen_w, screen_h);
+
+    let payload = json!({
+        "session_id": session_id,
+        "data": base64::encode(&data),
+        "format": "jpeg",
+        "screen_w": screen_w,
+        "screen_h": screen_h,
+    });
+    app.emit_to("pet-overlay", "remote-frame", payload.clone())
+        .map_err(|e| format!("emit frame gagal: {}", e))?;
+    let _ = app.emit("remote-frame", payload);
+
+    Ok(())
     }
 
     #[cfg(target_os = "macos")]
     {
+    use std::process::Command;
+
     // Cek apakah session masih aktif
     if !state.has_session(&session_id) {
         return Err(format!("Session {} tidak aktif", session_id));
@@ -117,6 +144,7 @@ pub async fn remote_capture_and_send(
 }
 
 /// Baca dimensi PNG dari header file (tanpa library gambar).
+#[cfg(target_os = "macos")]
 fn read_png_size(path: &str) -> Option<(f64, f64)> {
     use std::io::Read;
     let mut f = std::fs::File::open(path).ok()?;

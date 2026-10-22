@@ -2039,6 +2039,12 @@ dependencies = [
 ]
 
 [[package]]
+name = "jpeg-encoder"
+version = "0.6.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "b454d911ac55068f53495488d8ccd0646eaa540c033a28ee15b07838afafb01f"
+
+[[package]]
 name = "js-sys"
 version = "0.3.105"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -4350,12 +4356,13 @@ dependencies = [
 
 [[package]]
 name = "ticketing-desktop"
-version = "1.1.0"
+version = "1.1.1"
 dependencies = [
  "base64 0.22.1",
  "core-graphics 0.23.2",
  "gethostname",
  "getrandom 0.2.17",
+ "jpeg-encoder",
  "serde",
  "serde_json",
  "sysinfo",
