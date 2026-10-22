@@ -184,6 +184,24 @@ async function main() {
 
   fs.writeFileSync(manifestPath, JSON.stringify(manifest, null, 2) + "\n");
 
+  // Entri macOS (opsional). Artefak updater macOS = Ticketing.app.tar.gz (+ .sig).
+  // Pakai --macos untuk mengaktifkannya; tanpa flag, entri macOS yang lama
+  // tetap dipertahankan apa adanya.
+  if (has("--macos")) {
+    const tarball = path.join(DOWNLOADS, "Ticketing.app.tar.gz");
+    const tarSig = tarball + ".sig";
+    if (fs.existsSync(tarball) && fs.existsSync(tarSig)) {
+      manifest.platforms["darwin-x86_64"] = {
+        signature: fs.readFileSync(tarSig, "utf8").trim(),
+        url: "https://ticketing.marisoncloud.com/downloads/Ticketing.app.tar.gz",
+      };
+      fs.writeFileSync(manifestPath, JSON.stringify(manifest, null, 2) + "\n");
+      console.log("  macOS   : Ticketing.app.tar.gz (darwin-x86_64)");
+    } else {
+      console.warn("  ! Tiketing.app.tar.gz / .sig tidak ada di downloads — entri macOS dilewati.");
+    }
+  }
+
   console.log("");
   console.log(`Rilis ${VERSION} terpasang:`);
   console.log(`  file    : ${target}`);
