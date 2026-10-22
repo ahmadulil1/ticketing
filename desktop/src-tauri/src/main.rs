@@ -21,6 +21,20 @@ use crate::system_tray::nudge_repaint;
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
+    // Windows: proses harus DPI-aware SEBELUM window dibuat. Tanpa ini,
+    // GDI capture di-virtualisasi (resolusi turun) dan koordinat mouse
+    // meleset di layar berskala 125-150%.
+    #[cfg(target_os = "windows")]
+    {
+        use windows::Win32::UI::HiDpi::{
+            SetProcessDpiAwarenessContext, DPI_AWARENESS_CONTEXT_PER_MONITOR_AWARE_V2,
+        };
+        unsafe {
+            // Gagal = sudah di-set oleh WebView2, itu wajar. Abaikan.
+            let _ = SetProcessDpiAwarenessContext(DPI_AWARENESS_CONTEXT_PER_MONITOR_AWARE_V2);
+        }
+    }
+
     tauri::Builder::default()
         .plugin(tauri_plugin_single_instance::init(|app, _args, _cwd| {
             // Instance kedua: tunjukkan window mini yang ada, jangan buat app baru

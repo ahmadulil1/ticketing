@@ -122,10 +122,20 @@ pub fn capture_frame() -> Result<(Vec<u8>, f64, f64), String> {
 
         // BGRA -> RGB (urutan channel dibalik).
         let mut rgb = Vec::with_capacity((dst_w as usize) * (dst_h as usize) * 3);
+        let mut brightest = 0u8;
         for px in raw.chunks_exact(4) {
             rgb.push(px[2]);
             rgb.push(px[1]);
             rgb.push(px[0]);
+            brightest = brightest.max(px[0]).max(px[1]).max(px[2]);
+        }
+
+        // Layar terkunci / sesi tidak interaktif -> GDI hasilkan layar hitam
+        // tanpa error. Laporkan supaya admin tak mengira "remote nya hang".
+        if brightest < 6 {
+            return Err(
+                "Layar tampil hitam (PC terkunci atau sesi tidak interaktif)".to_string(),
+            );
         }
 
         // Encode JPEG.

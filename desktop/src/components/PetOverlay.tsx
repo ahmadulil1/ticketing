@@ -282,6 +282,7 @@ export default function PetOverlay({ onClick }: Props) {
   useEffect(() => {
     if (remoteState === "active" && remoteSessionId && isRemotePlatform) {
       let lastNote = "";
+      let lastErrNote = "";
       captureLoopRef.current = setInterval(async () => {
         try {
           await tauriInvokeStrict("remote_capture_and_send", {
@@ -298,6 +299,16 @@ export default function PetOverlay({ onClick }: Props) {
         } catch (e) {
           console.error("[pet] capture error:", e);
           lastNote = "ERR";
+          // Kirim alasan error ke server supaya admin bisa lihat di panel web
+          // (Riwayat Remote) — tanpa perlu buka devtools di PC client.
+          const msg = String((e as any)?.message || e || "error tidak diketahui").slice(0, 180);
+          if (msg !== lastErrNote) {
+            lastErrNote = msg;
+            api.patch(`/remote/${remoteSessionId}`, {
+              status: "accepted", device_id: deviceId, device_secret: getDeviceSecret(),
+              note: `capture error: ${msg}`,
+            }).catch(() => {});
+          }
         }
       }, 500); // ~2 FPS
       return () => {
