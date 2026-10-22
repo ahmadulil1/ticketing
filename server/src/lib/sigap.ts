@@ -56,7 +56,12 @@ export async function sigapLogin(email: string, password: string): Promise<Sigap
     resp = await fetch(`${SIGAP_BASE_URL}/api/auth/login`, {
       method: "POST",
       redirect: "manual", // jangan ikuti redirect lintas origin
-      headers: { "Content-Type": "application/json", Accept: "application/json" },
+      headers: {
+        "Content-Type": "application/json",
+        Accept: "application/json",
+        // Header yang sama dipakai klien web resmi SIGAP.
+        "X-SIGAP-Client": "web",
+      },
       body: JSON.stringify({ email, password }),
       signal: AbortSignal.timeout(15000),
     });
