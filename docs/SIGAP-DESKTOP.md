@@ -127,6 +127,16 @@ server), di staging.
 
 Semua uji memakai **staging**, tidak boleh production.
 
+## Bukti
+
+| Bukti | Status |
+|---|---|
+| Tes kontrak Rust (15 pass) | `cd desktop/src-tauri && cargo test` |
+| Tampilan panel (terputus) | `docs/screenshots/sigap-panel-terputus.png` |
+| Tampilan inbox + kode pairing | belum — butuh route staging aktif |
+| Popup native Windows | belum — harus dari paket terpasang |
+| Popup native macOS | belum (staging macOS ditunda) |
+
 ## Mismatch ke tim SIGAP (per 2026-10-22)
 
 `https://sigap.marison-testing.biz.id` hidup, `/desktop/authorize` ada, tapi
