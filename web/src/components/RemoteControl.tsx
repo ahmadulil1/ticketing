@@ -283,7 +283,7 @@ export default function RemoteControl({
         </button>
       ) : (
         <button
-          className="btn btn-outline"
+          className="btn btn-primary btn-sm btn-action"
           onClick={startRemote}
           disabled={loading || !supported}
           title={btnTitle}
@@ -292,8 +292,7 @@ export default function RemoteControl({
             "Membuat sesi..."
           ) : (
             <>
-              <Video size={16} /> {label || "Remote Desktop"}
-              {!supported && " (macOS/Windows saja)"}
+              <Video size={16} /> {label || "Remote"}
             </>
           )}
         </button>

@@ -59,11 +59,11 @@ export default function DeviceList() {
         <span className="muted">
           {rows.length} baris · {new Set(rows.map((r: any) => r.device_id).filter(Boolean)).size} perangkat
         </span>
-        <button className="btn btn-primary" onClick={() => setCreateOpen(v => !v)}>
-          <Plus size={16} /> Tambah aset
+        <button className="btn btn-primary btn-sm" onClick={() => setCreateOpen(v => !v)}>
+          <Plus size={15} /> Tambah aset
         </button>
-        <button className="btn btn-outline" onClick={() => setGroupsOpen(true)}>
-          <Settings size={16} /> Kelola group
+        <button className="btn btn-quiet btn-sm" onClick={() => setGroupsOpen(true)}>
+          <Settings size={15} /> Kelola group
         </button>
       </div>
 
@@ -158,9 +158,13 @@ export default function DeviceList() {
                     ) : null}
                   </div>
                   <footer className="device-card-clean-foot">
-                    <span className="muted">{row.active_count || 0} tiket aktif</span>
+                    {row.active_count > 0 ? (
+                      <span className="badge-active">{row.active_count} tiket aktif</span>
+                    ) : (
+                      <span className="badge-done">Tidak ada tiket aktif</span>
+                    )}
                     <div className="device-actions" onClick={e => e.stopPropagation()}>
-                      {row.device_id && <Link className="btn btn-outline" to={`/devices/${row.device_id}`}>Detail</Link>}
+                      {row.device_id && <Link className="btn btn-tinted btn-sm btn-action" to={`/devices/${row.device_id}`}>Detail</Link>}
                       {row.device_id && <RemoteControl deviceId={row.device_id} deviceName={label} osName={row.os_name} />}
                     </div>
                   </footer>

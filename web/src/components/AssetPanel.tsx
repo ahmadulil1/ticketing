@@ -90,7 +90,7 @@ export default function AssetPanel({
           <section className="asset-section">
             <div className="asset-section-head">
               <h3>Ringkasan</h3>
-              <button className="btn btn-outline" onClick={() => setEditing(v => !v)}>
+              <button className="btn btn-tinted btn-sm btn-action" onClick={() => setEditing(v => !v)}>
                 <Pencil size={14} /> Edit
               </button>
             </div>
@@ -172,7 +172,7 @@ export default function AssetPanel({
           <section className="asset-section">
             <div className="asset-section-head">
               <h3>Perangkat</h3>
-              <Link className="btn btn-outline" to={`/devices/${deviceId}`}>
+              <Link className="btn btn-quiet btn-sm btn-action" to={`/devices/${deviceId}`}>
                 <Monitor size={14} /> Halaman device
               </Link>
             </div>
