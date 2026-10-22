@@ -5,6 +5,7 @@ import { useEffect, useState } from "react";
 import api from "./lib/api";
 import { useTheme } from "./hooks/useTheme";
 import DownloadMenu from "./components/DownloadMenu";
+import InstallGuide from "./pages/InstallGuide";
 import Login from "./pages/Login";
 import Dashboard from "./pages/Dashboard";
 import TicketDetail from "./pages/TicketDetail";
@@ -169,6 +170,7 @@ function App() {
       <BrowserRouter>
         <Routes>
           <Route path="/login" element={<Login />} />
+          <Route path="/install" element={<InstallGuide />} />
           <Route path="/" element={<PrivateRoute><Shell><Dashboard /></Shell></PrivateRoute>} />
           <Route path="/ticket/:id" element={<PrivateRoute><TicketDetail /></PrivateRoute>} />
           <Route path="/devices" element={<PrivateRoute><Shell><DeviceList /></Shell></PrivateRoute>} />

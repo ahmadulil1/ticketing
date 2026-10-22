@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
-import { Download, Monitor, Apple, ExternalLink, ChevronDown } from "lucide-react";
+import { Download, Monitor, Apple, ExternalLink, ChevronDown, BookOpen } from "lucide-react";
+import { Link } from "react-router-dom";
 
 /**
  * Menu download aplikasi desktop.
@@ -127,6 +128,14 @@ export default function DownloadMenu() {
             <ExternalLink size={15} />
             <span>Semua rilis (GitHub)</span>
           </a>
+          <Link
+            className="dl-item"
+            to="/install"
+            onClick={() => setOpen(false)}
+          >
+            <BookOpen size={15} />
+            <span>Panduan install</span>
+          </Link>
           <div className="dl-pop-foot">
             <ChevronDown size={12} />
             <span>Versi {version || "?"} — cek juga halaman rilis</span>
