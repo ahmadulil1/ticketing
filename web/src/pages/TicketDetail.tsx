@@ -1,6 +1,6 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useRealtime } from "../hooks/useRealtime";
-import { useParams, useNavigate } from "react-router-dom";
+import { useParams, useNavigate, useLocation } from "react-router-dom";
 import { useState, useEffect, useRef } from "react";
 import Pagination from "../components/Pagination";
 import Gallery, { GalleryLabel } from "../components/Gallery";
@@ -20,6 +20,9 @@ const statusColors: Record<string, string> = {
 export default function TicketDetail() {
   const { id } = useParams();
   const navigate = useNavigate();
+  // Kembali ke halaman asal (mis. detail perangkat), default ke daftar Perangkat.
+  const location = useLocation();
+  const backTo = (location.state as { from?: string } | null)?.from || "/devices";
   const queryClient = useQueryClient();
   const [message, setMessage] = useState("");
   const [isInternal, setIsInternal] = useState(false);
@@ -197,7 +200,7 @@ export default function TicketDetail() {
   return (
     <div className="ticket-detail">
       <header>
-        <button onClick={() => navigate("/")} className="back-btn">
+        <button onClick={() => navigate(backTo)} className="back-btn">
           <ArrowLeft size={20} /> Kembali
         </button>
         <div className="ticket-info">

@@ -50,7 +50,7 @@ export default function TicketList({ tickets }: Props) {
   return (
     <div className="ticket-list">
       {tickets.map((ticket) => (
-        <div key={ticket.id} className="ticket-item" onClick={() => navigate("/ticket/" + ticket.id)}>
+        <div key={ticket.id} className="ticket-item" onClick={() => navigate("/ticket/" + ticket.id, { state: { from: "/" } })}>
           <div className="ticket-info">
             <div className="ticket-header">
               <span className="ticket-number">{ticket.ticket_number}</span>

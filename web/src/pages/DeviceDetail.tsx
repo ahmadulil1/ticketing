@@ -157,7 +157,7 @@ export default function DeviceDetail() {
         <div className="panel-head"><h2>Tiket Device Ini</h2></div>
         <div className="device-tickets">
           {(tickets).map((t: any) => (
-            <button key={t.id} className="ticket-row" onClick={() => navigate(`/ticket/${t.id}`)}>
+            <button key={t.id} className="ticket-row" onClick={() => navigate(`/ticket/${t.id}`, { state: { from: `/devices/${deviceId}` } })}>
               <span className="t-num">{t.ticket_number}</span>
               <span className="t-title">{t.title}</span>
               <span className="t-status">{STATUS_LABEL[t.status] || t.status}</span>

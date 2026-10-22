@@ -221,7 +221,7 @@ export default function AssetPanel({
                   <ul className="asset-tickets">
                     {tickets.slice(0, 6).map((t: any) => (
                       <li key={t.id}>
-                        <Link to={`/ticket/${t.id}`}>{t.ticket_number}</Link>
+                        <Link to={`/ticket/${t.id}`} state={{ from: "/devices" }}>{t.ticket_number}</Link>
                         <span className="muted"> {t.title}</span>
                       </li>
                     ))}
