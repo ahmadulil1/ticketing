@@ -21,7 +21,7 @@ const BASE = API.replace(/\/api\/?$/, "");
 type OS = "windows" | "macos" | "linux";
 
 function detectOS(): OS {
-  const p = (navigator.userAgentData?.platform || navigator.platform || navigator.userAgent).toLowerCase();
+  const p = ((navigator as Navigator & { userAgentData?: { platform?: string } }).userAgentData?.platform || navigator.platform || navigator.userAgent).toLowerCase();
   if (p.includes("win")) return "windows";
   if (p.includes("mac") || p.includes("iphone") || p.includes("ipad")) return "macos";
   return "linux";

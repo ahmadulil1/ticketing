@@ -249,6 +249,23 @@ body {
 
 /* ===== Device grid ===== */
 .device-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 0.75rem; }
+.device-filters, .device-actions, .device-form { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+.device-filters { margin-bottom: 12px; }
+.device-filters input { flex: 1; min-width: 180px; }
+.device-filters input, .device-filters select, .device-form input, .device-form select { padding: 8px; background: var(--surface); color: var(--text); border: 1px solid var(--border); border-radius: 6px; font: inherit; }
+.device-form { margin-bottom: 12px; align-items: flex-end; }
+.device-form label { display: flex; flex-direction: column; gap: 4px; font-size: 0.8rem; }
+.device-table-scroll { overflow-x: auto; }
+.device-table { width: 100%; border-collapse: collapse; font-size: 0.8rem; text-align: left; }
+.device-table th, .device-table td { padding: 8px 10px; border-bottom: 1px solid var(--border); vertical-align: middle; }
+.device-table th { color: var(--text-2); white-space: nowrap; }
+.device-table td:first-child { min-width: 140px; overflow-wrap: anywhere; }
+.device-table small { display: block; color: var(--text-3); font-size: 0.65rem; }
+.device-actions { flex-wrap: nowrap; }
+.device-actions .btn { font-size: 0.7rem; padding: 5px 7px; }
+.device-group-overlay { position: fixed; inset: 0; z-index: 100; background: #0009; display: grid; place-items: center; padding: 16px; }
+.device-group-modal { width: min(540px, 100%); max-height: 85vh; overflow: auto; }
+.device-group-row { display: flex; justify-content: space-between; align-items: center; padding: 8px 0; border-bottom: 1px solid var(--border); }
 .device-grid.wide { grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); }
 .device-card {
   position: relative;

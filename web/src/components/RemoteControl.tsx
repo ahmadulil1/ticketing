@@ -68,6 +68,7 @@ export default function RemoteControl({
         ws.binaryType = "arraybuffer";
 
         ws.onopen = () => {
+          if (!ws) return;
           setViewerConnected(true);
           wsRef.current = ws;
           ws.send(

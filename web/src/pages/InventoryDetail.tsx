@@ -22,6 +22,13 @@ export default function InventoryDetail() {
   const queryClient = useQueryClient();
   const [ev, setEv] = useState({ event_date: new Date().toISOString().slice(0, 10), jenis: "ganti", komponen: "", old_detail: "", new_detail: "", catatan: "" });
   const [showEv, setShowEv] = useState(false);
+  const [editing, setEditing] = useState(false);
+  const [assetForm, setAssetForm] = useState({ no_inventaris: "", lokasi: "", catatan: "" });
+  const { data: groups } = useQuery({ queryKey: ["device-groups"], queryFn: async () => (await api.get("/device-groups")).data });
+  const saveAsset = useMutation({
+    mutationFn: async () => api.patch(`/inventories/${id}`, assetForm),
+    onSuccess: () => { queryClient.invalidateQueries({ queryKey: ["inventory", id] }); queryClient.invalidateQueries({ queryKey: ["inventories"] }); setEditing(false); },
+  });
 
   const { data: inv, isLoading, error } = useQuery({
     queryKey: ["inventory", id],
@@ -57,6 +64,7 @@ export default function InventoryDetail() {
           <ArrowLeft size={16} /> Kembali
         </button>
         <h1>{inv.no_inventaris}</h1>
+        <button className="btn btn-outline" onClick={() => { setAssetForm({ no_inventaris: inv.no_inventaris, lokasi: inv.lokasi || "", catatan: inv.catatan || "" }); setEditing(!editing); }}>Edit nomor / group</button>
         {inv.device_id && (
           <Link to={`/devices/${inv.device_id}`} className="btn btn-outline">
             Lihat Tiket
@@ -64,6 +72,13 @@ export default function InventoryDetail() {
         )}
       </div>
 
+      {editing && <form className="panel device-form" onSubmit={e => { e.preventDefault(); saveAsset.mutate(); }}>
+        <label>No. inventaris<input required maxLength={100} value={assetForm.no_inventaris} onChange={e => setAssetForm({ ...assetForm, no_inventaris: e.target.value })} /></label>
+        <label>Group / lokasi<select value={assetForm.lokasi} onChange={e => setAssetForm({ ...assetForm, lokasi: e.target.value })}><option value="">Belum dikelompokkan</option>{[...new Set([...(groups || []).map((g: any) => g.nama), inv.lokasi].filter(Boolean))].map((name: any) => <option key={name}>{name}</option>)}</select></label>
+        <label>Catatan<input value={assetForm.catatan} onChange={e => setAssetForm({ ...assetForm, catatan: e.target.value })} /></label>
+        <button className="btn btn-primary" disabled={saveAsset.isPending}>Simpan</button><button type="button" className="btn btn-outline" onClick={() => setEditing(false)}>Batal</button>
+        {saveAsset.isError && <p role="alert">{(saveAsset.error as any)?.response?.data?.error || "Gagal menyimpan aset"}</p>}
+      </form>}
       <div className="stat-cards">
         <SpecCard label="CPU" value={inv.cpu_model} />
         <SpecCard label="RAM" value={inv.ram_gb ? `${inv.ram_gb} GB` : null} />

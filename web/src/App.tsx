@@ -1,6 +1,6 @@
 import { QueryClient, QueryClientProvider, useQuery } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route, Navigate, NavLink, useLocation } from "react-router-dom";
-import { LayoutDashboard, Monitor, Users, BarChart3, LogOut, Menu, X, Sun, Moon, Bell, Package } from "lucide-react";
+import { LayoutDashboard, Monitor, Users, BarChart3, LogOut, Menu, X, Sun, Moon, Bell } from "lucide-react";
 import { useEffect, useState } from "react";
 import api from "./lib/api";
 import { useTheme } from "./hooks/useTheme";
@@ -12,7 +12,6 @@ import Dashboard from "./pages/Dashboard";
 import TicketDetail from "./pages/TicketDetail";
 import DeviceDetail from "./pages/DeviceDetail";
 import DeviceList from "./pages/DeviceList";
-import Inventory from "./pages/Inventory";
 import InventoryDetail from "./pages/InventoryDetail";
 import Agents from "./pages/Agents";
 import Stats from "./pages/Stats";
@@ -22,8 +21,7 @@ const queryClient = new QueryClient();
 
 const NAV = [
   { to: "/", label: "Dashboard", icon: LayoutDashboard },
-  { to: "/devices", label: "Device", icon: Monitor },
-  { to: "/inventories", label: "Inventaris", icon: Package },
+  { to: "/devices", label: "Perangkat", icon: Monitor },
   { to: "/agents", label: "Agent", icon: Users },
   { to: "/stats", label: "Statistik", icon: BarChart3 },
 ];
@@ -177,7 +175,7 @@ function App() {
           <Route path="/ticket/:id" element={<PrivateRoute><TicketDetail /></PrivateRoute>} />
           <Route path="/devices" element={<PrivateRoute><Shell><DeviceList /></Shell></PrivateRoute>} />
           <Route path="/devices/:deviceId" element={<PrivateRoute><Shell><DeviceDetail /></Shell></PrivateRoute>} />
-          <Route path="/inventories" element={<PrivateRoute><Shell><Inventory /></Shell></PrivateRoute>} />
+          <Route path="/inventories" element={<PrivateRoute><Navigate to="/devices" replace /></PrivateRoute>} />
           <Route path="/inventories/:id" element={<PrivateRoute><Shell><InventoryDetail /></Shell></PrivateRoute>} />
           <Route path="/agents" element={<PrivateRoute><Shell><Agents /></Shell></PrivateRoute>} />
           <Route path="/stats" element={<PrivateRoute><Shell><Stats /></Shell></PrivateRoute>} />

@@ -108,7 +108,13 @@ const inventoryRoutes: FastifyPluginAsync = async (fastify) => {
     const push = (col: string, val: any) => { params.push(val); sets.push(`${col} = $${params.length}`); };
     const full = (await db.query(`SELECT no_inventaris FROM inventories WHERE id = $1`, [id])).rows[0];
     if (!full) return reply.status(404).send({ error: "Tidak ditemukan" });
-    if (typeof no_inventaris === "string" && no_inventaris.trim() && no_inventaris.trim() !== full.no_inventaris) push("no_inventaris", no_inventaris.trim());
+    if (no_inventaris !== undefined && (typeof no_inventaris !== "string" || !no_inventaris.trim() || no_inventaris.trim().length > 100)) {
+      return reply.status(400).send({ error: "No inventaris wajib diisi, maksimal 100 karakter" });
+    }
+    if (typeof no_inventaris === "string" && no_inventaris.trim() !== full.no_inventaris) {
+      if (!/^[0-9]{9}$/.test(no_inventaris.trim())) return reply.status(400).send({ error: "Nomor baru harus 9 digit angka; nomor lama boleh tetap" });
+      push("no_inventaris", no_inventaris.trim());
+    }
     if (device_id !== undefined) push("device_id", device_id || null);
     if (lokasi !== undefined) push("lokasi", lokasi || null);
     if (catatan !== undefined) push("catatan", catatan || null);

@@ -38,7 +38,7 @@ export default function DeviceDetail() {
   const { data: remoteHistory } = useQuery({
     queryKey: ["remote-history", deviceId],
     queryFn: async () => {
-      const res = await api.get(`/remote/?device_id=${encodeURIComponent(deviceId)}`);
+      const res = await api.get(`/remote/?device_id=${encodeURIComponent(deviceId || "")}`);
       return res.data as Array<{
         id: string;
         status: string;
