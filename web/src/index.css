@@ -263,6 +263,24 @@ body {
 .device-table small { display: block; color: var(--text-3); font-size: 0.65rem; }
 .device-actions { flex-wrap: nowrap; }
 .device-actions .btn { font-size: 0.7rem; padding: 5px 7px; }
+/* Kolom Aksi menempel di kanan: tombol Remote tetap terlihat saat tabel
+   digeser horizontal di layar sempit. */
+.device-table th:last-child, .device-table td:last-child { position: sticky; right: 0; background: var(--surface); box-shadow: -6px 0 8px -8px rgba(0, 0, 0, 0.35); }
+.device-table th:last-child { z-index: 2; }
+.device-table td:last-child { z-index: 1; }
+/* Layar kecil: tabel jadi kartu bertumpuk, semua kolom tetap terbaca. */
+@media (max-width: 760px) {
+  .device-table-scroll { overflow-x: visible; }
+  .device-table, .device-table tbody, .device-table tr, .device-table td { display: block; width: 100%; }
+  .device-table thead { display: none; }
+  .device-table tr { border: 1px solid var(--border); border-radius: 10px; padding: 0.5rem 0.625rem; margin-bottom: 0.5rem; background: var(--surface-2); }
+  .device-table td { display: flex; justify-content: space-between; gap: 0.75rem; align-items: center; border: none; padding: 0.1875rem 0; }
+  .device-table td::before { content: attr(data-label); color: var(--text-2); font-weight: 600; flex-shrink: 0; }
+  .device-table th:last-child, .device-table td:last-child { position: static; box-shadow: none; }
+  .device-table td:last-child { border-top: 1px solid var(--border); margin-top: 0.375rem; padding-top: 0.5rem; }
+  .device-table td:last-child::before { content: ""; }
+  .device-actions { flex-wrap: wrap; justify-content: flex-end; }
+}
 .device-group-overlay { position: fixed; inset: 0; z-index: 100; background: #0009; display: grid; place-items: center; padding: 16px; }
 .device-group-modal { width: min(540px, 100%); max-height: 85vh; overflow: auto; }
 .device-group-row { display: flex; justify-content: space-between; align-items: center; padding: 8px 0; border-bottom: 1px solid var(--border); }
@@ -358,7 +376,7 @@ body {
 .install-help code { font-size: 0.75rem; background: var(--surface-3); padding: 0.125rem 0.375rem; border-radius: 4px; word-break: break-all; }
 
 /* ===== Galeri lampiran ===== */
-.gallery { display: grid; grid-template-columns: repeat(auto-fill, minmax(110px, 1fr)); gap: 0.5rem; margin-top: 0.5rem; }
+.gallery { display: grid; grid-template-columns: repeat(auto-fill, minmax(170px, 1fr)); gap: 0.5rem; margin-top: 0.5rem; }
 .gallery-compact { display: flex; flex-wrap: wrap; gap: 0.5rem; margin-top: 0.375rem; max-width: 100%; }
 .gallery-compact .gallery-item { width: 260px; max-width: 100%; height: auto; aspect-ratio: 4 / 3; }
 .gallery-item {
