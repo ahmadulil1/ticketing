@@ -11,6 +11,7 @@ mod remote_input;
 mod remote_permissions;
 mod device_identity;
 mod logging;
+mod sigap;
 #[cfg(target_os = "windows")]
 mod remote_windows;
 
@@ -55,6 +56,7 @@ pub fn run() {
         .plugin(tauri_plugin_updater::Builder::new().build())
         .plugin(tauri_plugin_process::init())
         .manage(RemoteControlState::new())
+        .manage(sigap::SigapState::new())
         .setup(|app| {
             // Log file (penting di Windows: tak ada console di build release)
             logging::init(app);
@@ -111,6 +113,16 @@ pub fn run() {
             // Setup notifications
             notifications::setup_notifications(&app.handle())?;
 
+            // reqwest dipakai reqwest-no-provider -> pasang provider crypto ring.
+            let _ = rustls::crypto::ring::default_provider().install_default();
+
+            // Integrasi SIGAP: preferensi, izin notifikasi, pulihkan sesi.
+            sigap::init(&app.handle().clone());
+            let app_sigap = app.handle().clone();
+            tauri::async_runtime::spawn(async move {
+                sigap::restore_session(app_sigap).await;
+            });
+
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
@@ -136,6 +148,16 @@ pub fn run() {
             remote_permissions::remote_request_screen_recording,
             remote_permissions::remote_open_accessibility_settings,
             device_identity::get_device_identity,
+            sigap::sigap_get_state,
+            sigap::sigap_start_pairing,
+            sigap::sigap_cancel_pairing,
+            sigap::sigap_logout,
+            sigap::sigap_fetch_notifications,
+            sigap::sigap_mark_read,
+            sigap::sigap_open_notification,
+            sigap::sigap_set_detail,
+            sigap::sigap_request_permission,
+            sigap::sigap_open_authorize,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

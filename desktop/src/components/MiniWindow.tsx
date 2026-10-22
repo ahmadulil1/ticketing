@@ -1,15 +1,17 @@
 import { useState, useEffect } from "react";
-import { X, Minimize, Search, Plus, RefreshCw, Pin, PinOff, Sun, Moon } from "lucide-react";
+import { X, Minimize, Search, Plus, RefreshCw, Pin, PinOff, Sun, Moon, Bell } from "lucide-react";
 import TicketList from "./TicketList";
 import ChatView from "./ChatView";
 import TicketForm from "./TicketForm";
 import AccountMenu from "./AccountMenu";
+import SigapPanel from "./SigapPanel";
 import Tutorial, { tutorialSeen } from "./Tutorial";
 import { useTickets } from "../hooks/useTickets";
 import { useUnread } from "../hooks/useUnread";
 import { useRealtime } from "../hooks/useRealtime";
 import { useDragRegion } from "../hooks/useDragRegion";
 import { useTheme } from "../hooks/useTheme";
+import { getSigapState, onSigapState } from "../services/sigap";
 
 const isTauri = () =>
   typeof window !== "undefined" &&
@@ -54,8 +56,9 @@ function ThemeToggle() {
 }
 
 export default function MiniWindow() {
-  const [view, setView] = useState<"list" | "chat" | "form">("list");
+  const [view, setView] = useState<"list" | "chat" | "form" | "sigap">("list");
   const [selectedTicket, setSelectedTicket] = useState<string | null>(null);
+  const [sigapUnread, setSigapUnread] = useState(0);
   const [search, setSearch] = useState("");
   const [status, setStatus] = useState("");
   const [pinned, setPinned] = useState(false);
@@ -89,6 +92,13 @@ export default function MiniWindow() {
       getCurrentWindow().setAlwaysOnTop(pinned);
     });
   }, [pinned]);
+
+  // Badge notifikasi SIGAP (sumber kebenaran ada di Rust).
+  useEffect(() => {
+    getSigapState().then((s) => s && setSigapUnread(s.unread)).catch(() => {});
+    const off = onSigapState((s) => setSigapUnread(s.unread));
+    return () => off();
+  }, []);
 
   const stats = {
     baru: tickets.filter(t => t.status === "baru").length,
@@ -127,6 +137,10 @@ export default function MiniWindow() {
     return <TicketForm onSubmit={handleCreateTicket} onCancel={handleBack} />;
   }
 
+  if (view === "sigap") {
+    return <SigapPanel onBack={handleBack} onUnreadChange={setSigapUnread} />;
+  }
+
   return (
     <div className="mini-window">
       <header className="mini-header" onMouseDown={onDrag}>
@@ -137,6 +151,10 @@ export default function MiniWindow() {
             {pinned ? <PinOff size={18} /> : <Pin size={18} />}
           </button>
           <button onClick={() => refetch()} title="Refresh"><RefreshCw size={18} /></button>
+          <button onClick={() => setView("sigap")} title="Notifikasi SIGAP" className="bell-btn">
+            <Bell size={18} />
+            {sigapUnread > 0 && <span className="bell-badge">{sigapUnread > 9 ? "9+" : sigapUnread}</span>}
+          </button>
           <button onClick={() => setView("form")} title="Tiket Baru"><Plus size={18} /></button>
           <AccountMenu />
           <button onClick={minimizeWindow} title="Minimize"><Minimize size={18} /></button>
