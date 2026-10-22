@@ -8,7 +8,7 @@ interface Props {
 }
 
 export default function Login({ onLogin }: Props) {
-  const [username, setUsername] = useState("");
+  const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState("");
@@ -18,7 +18,7 @@ export default function Login({ onLogin }: Props) {
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     setError("");
-    login({ username, password }, {
+    login({ email, password }, {
       onSuccess: (data: any) => {
         // Admin hanya boleh login via web panel
         if (data?.user?.role === "admin") {
@@ -46,13 +46,13 @@ export default function Login({ onLogin }: Props) {
         <h1>Ticketing</h1>
         <p className="login-sub">Laporkan masalah dan pantau perkembangannya</p>
         <form onSubmit={handleSubmit}>
-          <label className="field-label" htmlFor="login-username">Username</label>
+          <label className="field-label" htmlFor="login-email">Email SIGAP</label>
           <input
-            id="login-username"
-            type="text"
-            placeholder="Masukkan username"
-            value={username}
-            onChange={(e) => setUsername(e.target.value)}
+            id="login-email"
+            type="email"
+            placeholder="Masukkan email SIGAP"
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
             required
             autoFocus
           />

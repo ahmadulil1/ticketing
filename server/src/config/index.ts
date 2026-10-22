@@ -38,4 +38,14 @@ export const config = {
     reopenDays: 3,
     reopenDeadlineHour: 17, // tiket selesai bisa dibuka kembali sampai jam 17:00 hari yang sama
   },
+
+  // Integrasi SIGAP (staging). Login admin Ticketing memakai akun SIGAP.
+  sigap: {
+    baseUrl: process.env.SIGAP_BASE_URL || "https://sigap.marison-testing.biz.id",
+    // Daftar email SIGAP yang boleh jadi admin Ticketing (pisahkan koma).
+    // Email diikat ke ID SIGAP pada login pertama, lalu ID itu yang dipakai.
+    adminEmails: process.env.SIGAP_ADMIN_EMAILS || "",
+    // Nama lengkap, urutan sama dengan adminEmails (opsional).
+    adminNames: process.env.SIGAP_ADMIN_NAMES || "",
+  },
 };

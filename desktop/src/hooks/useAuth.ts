@@ -4,8 +4,9 @@ import { User } from "../types";
 
 export function useLogin() {
   return useMutation({
-    mutationFn: async (credentials: { username: string; password: string }) => {
-      const res = await api.post("/auth/login", credentials);
+    // Login memakai akun SIGAP (server meneruskan kredensial ke SIGAP).
+    mutationFn: async (credentials: { email: string; password: string }) => {
+      const res = await api.post("/auth/login/sigap", credentials);
       localStorage.setItem("token", res.data.token);
       localStorage.setItem("user", JSON.stringify(res.data.user));
       return res.data;

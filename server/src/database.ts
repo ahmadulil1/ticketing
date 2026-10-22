@@ -163,9 +163,56 @@ export async function initDb() {
         device_secret VARCHAR(100) NOT NULL,
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
       );
+
+      -- Login admin via SIGAP.
+      -- Baris dibuat dari env SIGAP_ADMIN_EMAILS (email yang diizinkan).
+      -- sigap_user_id diisi pada login pertama lalu jadi kunci utama
+      -- (nama/email bisa berubah, id SIGAP tidak).
+      CREATE TABLE IF NOT EXISTS sigap_admins (
+        id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+        email VARCHAR(255) UNIQUE NOT NULL,
+        full_name VARCHAR(255),
+        sigap_user_id UUID UNIQUE,
+        role VARCHAR(20) DEFAULT 'admin' CHECK (role IN ('user', 'agent', 'admin')),
+        is_active BOOLEAN DEFAULT true,
+        bound_at TIMESTAMP,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      );
+      ALTER TABLE users ADD COLUMN IF NOT EXISTS sigap_user_id UUID;
+      CREATE UNIQUE INDEX IF NOT EXISTS idx_users_sigap_user_id
+        ON users (sigap_user_id) WHERE sigap_user_id IS NOT NULL;
     `);
+    await seedSigapAdmins(client);
     console.log("Database tables created");
   } finally {
     client.release();
   }
+}
+
+/**
+ * Seed daftar admin SIGAP dari env.
+ *
+ * SIGAP_ADMIN_EMAILS = "ahmad@...,aldama@..."   (wajib)
+ * SIGAP_ADMIN_NAMES  = "Ahmad Ulil Albab,Aldama" (opsional, urutan sama)
+ *
+ * Baris yang sudah terikat ke ID SIGAP tidak diubah (id tetap, bukan nama).
+ */
+async function seedSigapAdmins(client: any) {
+  const emails = config.sigap.adminEmails
+    .split(",")
+    .map((s) => s.trim().toLowerCase())
+    .filter(Boolean);
+  if (emails.length === 0) return;
+
+  const names = config.sigap.adminNames.split(",").map((s) => s.trim());
+  for (let i = 0; i < emails.length; i++) {
+    await client.query(
+      `INSERT INTO sigap_admins (email, full_name)
+       VALUES ($1, $2)
+       ON CONFLICT (email) DO UPDATE
+         SET full_name = COALESCE(EXCLUDED.full_name, sigap_admins.full_name)`,
+      [emails[i], names[i] || null]
+    );
+  }
+  console.log(`Seeded ${emails.length} admin SIGAP (${emails.join(", ")})`);
 }
