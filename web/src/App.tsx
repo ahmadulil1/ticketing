@@ -6,6 +6,7 @@ import api from "./lib/api";
 import { useTheme } from "./hooks/useTheme";
 import DownloadMenu from "./components/DownloadMenu";
 import InstallGuide from "./pages/InstallGuide";
+import PhotoGallery from "./pages/PhotoGallery";
 import Login from "./pages/Login";
 import Dashboard from "./pages/Dashboard";
 import TicketDetail from "./pages/TicketDetail";
@@ -171,6 +172,7 @@ function App() {
         <Routes>
           <Route path="/login" element={<Login />} />
           <Route path="/install" element={<InstallGuide />} />
+          <Route path="/gallery/:ticketId" element={<PhotoGallery />} />
           <Route path="/" element={<PrivateRoute><Shell><Dashboard /></Shell></PrivateRoute>} />
           <Route path="/ticket/:id" element={<PrivateRoute><TicketDetail /></PrivateRoute>} />
           <Route path="/devices" element={<PrivateRoute><Shell><DeviceList /></Shell></PrivateRoute>} />

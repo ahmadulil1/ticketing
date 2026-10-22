@@ -2,6 +2,7 @@ import { FastifyPluginAsync } from "fastify";
 import { db } from "../database.js";
 import { config } from "../config/index.js";
 import fs from "fs";
+import { createGalleryAccess, readGalleryAccess } from "../lib/gallery-access.js";
 import {
   saveAttachment,
   listAttachments,
@@ -25,6 +26,9 @@ async function verifyAccess(
   request: any,
   ticketId: string
 ): Promise<{ id: string; role: string } | null> {
+  if (request.query?.gallery_token) {
+    return request.method === "GET" ? readGalleryAccess(String(request.query.gallery_token), ticketId) : null;
+  }
   // 1. JWT (header Authorization ATAU query token untuk <img>)
   try {
     await request.jwtVerify();
@@ -60,6 +64,16 @@ async function verifyAccess(
 }
 
 const attachmentRoutes: FastifyPluginAsync = async (fastify) => {
+  fastify.post("/ticket/:ticketId/gallery-link", async (request, reply) => {
+    const { ticketId } = request.params as { ticketId: string };
+    const user = await verifyAccess(request, ticketId);
+    if (!user) return reply.status(401).send({ error: "Unauthorized" });
+    const ticket = (await db.query("SELECT requester_id, device_id FROM tickets WHERE id = $1", [ticketId])).rows[0];
+    if (!ticket) return reply.status(404).send({ error: "Tiket tidak ditemukan" });
+    if (user.role === "user" && ticket.requester_id !== user.id && ticket.device_id !== user.id) return reply.status(403).send({ error: "Akses ditolak" });
+    reply.header("Cache-Control", "no-store");
+    return { token: createGalleryAccess(ticketId, user), expires_in: 600 };
+  });
   // ---------------------------------------------------------------------
   // Serve file lampiran
   // ---------------------------------------------------------------------

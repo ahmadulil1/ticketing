@@ -19,6 +19,9 @@ const fs = require('node:fs/promises');
     assert.equal(created.status, 201);
     ticket = (await created.json()).id;
     const guest = `device_id=${device}&device_secret=${secret}`;
+    const grantResponse = await fetch(`${api}/attachments/ticket/${ticket}/gallery-link?${guest}`, { method: 'POST' });
+    assert.equal(grantResponse.status, 200);
+    const grant = await grantResponse.json();
     const png = await sharp({ create: { width: 12, height: 12, channels: 3, background: '#234567' } }).png().toBuffer();
     for (const internal of [false, true]) {
       const form = new FormData();
@@ -38,10 +41,14 @@ const fs = require('node:fs/promises');
       const bytes = Buffer.from(await image.arrayBuffer());
       assert.equal(bytes.toString('ascii', 8, 12), 'WEBP');
       assert.equal((await fetch(`${api}/attachments/${attachment.id}?${guest}`)).status, internal ? 403 : 200);
+      assert.equal((await fetch(`${api}/attachments/${attachment.id}?gallery_token=${grant.token}`)).status, internal ? 403 : 200);
       console.log(`PASS ${internal ? 'internal privacy' : 'public image'} + image-only chat + retry`);
     }
     const listing = await (await fetch(`${api}/attachments/ticket/${ticket}?${guest}`)).json();
     assert.equal(listing.length, 1);
+    const gallery = await (await fetch(`${api}/attachments/ticket/${ticket}?gallery_token=${grant.token}`)).json();
+    assert.equal(gallery.length, 1);
+    assert.equal((await fetch(`${api}/attachments/ticket/${ticket}/gallery-link?gallery_token=${grant.token}`, { method: 'POST' })).status, 401);
     const detail = await (await fetch(`${api}/tickets/${ticket}?device_id=${device}`)).json();
     assert.equal(detail.attachments.length, 1);
     assert.equal(detail.title, 'Image integration test');
