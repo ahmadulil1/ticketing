@@ -16,7 +16,7 @@ const userRoutes: FastifyPluginAsync = async (fastify) => {
     }
     
     const result = await db.query(
-      "SELECT id, username, email, full_name, role, is_active, created_at FROM users ORDER BY created_at DESC"
+      "SELECT id, username, email, full_name, role, is_active, sigap_user_id, created_at FROM users ORDER BY created_at DESC"
     );
     
     return result.rows;
@@ -105,6 +105,14 @@ const userRoutes: FastifyPluginAsync = async (fastify) => {
     
     if (updates.length === 0) {
       return reply.status(400).send({ error: "Tidak ada data untuk diupdate" });
+    }
+
+    // Akun admin SIGAP: role & status ditentukan SIGAP, tak bisa diubah manual.
+    const linked = await db.query("SELECT sigap_user_id FROM users WHERE id = $1", [id]);
+    if (linked.rows[0]?.sigap_user_id && (isActive !== undefined || newRole !== undefined)) {
+      return reply.status(400).send({
+        error: "Role dan status akun ini dikelola SIGAP",
+      });
     }
     
     updates.push("updated_at = CURRENT_TIMESTAMP");
