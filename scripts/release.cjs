@@ -192,7 +192,9 @@ async function main() {
     if (fs.existsSync(tarball) && fs.existsSync(tarSig)) {
       manifest.platforms["darwin-x86_64"] = {
         signature: fs.readFileSync(tarSig, "utf8").trim(),
-        url: "https://ticketing.marisoncloud.com/downloads/Ticketing.app.tar.gz",
+        // Query versi: cache key berbeda tiap rilis, jadi edge Cloudflare
+        // tak mungkin menyajikan artefak rilis sebelumnya.
+        url: `https://ticketing.marisoncloud.com/downloads/Ticketing.app.tar.gz?v=${VERSION}`,
       };
       fs.writeFileSync(manifestPath, JSON.stringify(manifest, null, 2) + "\n");
       console.log("  macOS   : Ticketing.app.tar.gz (darwin-x86_64)");
