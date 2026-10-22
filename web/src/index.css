@@ -479,6 +479,10 @@ body {
 }
 .message-input button:hover:not(:disabled) { background: var(--primary-strong); }
 .message-input button:disabled { opacity: 0.5; }
+.message-input .input-row { align-items: flex-end; }
+.message-input textarea { min-width: 0; }
+.message-input .input-row > button { flex: 0 0 44px; width: 44px; height: 44px; padding: 0; }
+.message-input .input-row > button svg { width: 22px; height: 22px; flex-shrink: 0; }
 .internal-toggle { display: flex; align-items: center; gap: 0.5rem; font-size: 0.875rem; color: var(--text-2); margin-top: 0.5rem; cursor: pointer; }
 .internal-toggle input { accent-color: var(--primary); width: 15px; height: 15px; }
 

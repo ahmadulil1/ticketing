@@ -141,6 +141,10 @@ button { font-family: inherit; }
 
 /* Chat View */
 .chat-view { display: flex; flex-direction: column; height: 100%; min-width: 0; background: var(--bg); }
+.message-input .input-row { align-items: flex-end; }
+.message-input textarea { min-width: 0; }
+.message-input .input-row > button { flex: 0 0 40px; width: 40px; height: 40px; padding: 0; }
+.message-input .input-row > button svg { width: 21px; height: 21px; flex-shrink: 0; }
 .message-body, .ticket-header-info h3, .ticket-header-info p { max-width: 100%; overflow-wrap: anywhere; white-space: pre-wrap; }
 .attachment-gallery { display: flex; flex-wrap: wrap; gap: 6px; max-width: 100%; }
 .attachment-gallery button { width: 85px; height: 65px; padding: 0; border: 1px solid var(--border); border-radius: 6px; overflow: hidden; cursor: pointer; }
