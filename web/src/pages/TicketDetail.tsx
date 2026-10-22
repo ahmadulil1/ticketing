@@ -275,7 +275,7 @@ export default function TicketDetail() {
                 <span className="time">{dayjs(msg.created_at).format("HH:mm")}</span>
                 {mine && msg.read_at && <span className="read-tick" title="Dibaca">✓✓</span>}
               </div>
-              <div className="message-body">{msg.body}</div>
+              {msg.body?.trim() && <div className="message-body">{msg.body}</div>}
               {msg.attachments?.length > 0 && (
                 <Gallery items={msg.attachments} compact />
               )}

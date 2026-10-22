@@ -202,7 +202,7 @@ export default function ChatView({ ticketId, onBack }: Props) {
                     <span className="time">{dayjs(msg.created_at).format("HH:mm")}</span>
                     {mine && msg.read_at && <span className="read-tick" title="Dibaca">✓✓</span>}
                   </div>
-                  <div className="message-body">{msg.body}</div>
+                  {msg.body?.trim() && <div className="message-body">{msg.body}</div>}
                   <Gallery items={msg.attachments || []} />
                   {msg.message_type === "internal" && <div className="internal-label">Catatan Internal</div>}
                 </div>
