@@ -298,7 +298,8 @@ fn save_detail_pref(app: &AppHandle, value: bool) {
     }
 }
 
-fn load_seen(app: &AppHandle, user_id: &str) -> HashSet<String> {
+/// Seen-ID per origin/user, urut lama -> baru (dipakai saat trim).
+fn load_seen(app: &AppHandle, user_id: &str) -> VecDeque<String> {
     let key = format!("{}{}", KEY_SEEN_PREFIX, user_id);
     let arr = app
         .store(STORE_FILE)
@@ -358,8 +359,9 @@ fn store_session(app: &AppHandle, token: TokenResponse) -> Result<Account, Strin
         inner.status = SigapStatus::Connected;
         inner.last_error = None;
         inner.baseline_done = baseline_done(app, &account.user_id);
-        inner.seen = load_seen(app, &account.user_id);
-        inner.seen_order = inner.seen.iter().cloned().collect();
+        let order = load_seen(app, &account.user_id);
+        inner.seen = order.iter().cloned().collect();
+        inner.seen_order = order;
     }
     Ok(account)
 }
