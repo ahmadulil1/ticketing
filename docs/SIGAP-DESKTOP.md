@@ -82,8 +82,10 @@ Skrip lengkap: `scripts/build-windows-mac.sh`.
 cd desktop && npm run tauri build -- --bundles app
 ```
 
-> **Status 1.1.12: build & tes macOS belum dijalankan** (staging macOS ditunda).
-> Lihat bagian "Batas yang belum diuji".
+> **Status 1.1.12**: build macOS sudah jadi dan terpublikasi
+> (`Ticketing.app.tar.gz` + `.sig`, signature cocok dengan manifest), tapi
+> **acceptance test macOS belum dijalankan** (staging macOS ditunda). Yang
+> belum teruji: popup native, pairing, dan refresh di macOS.
 
 ## Tes
 
