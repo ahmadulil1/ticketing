@@ -2,7 +2,7 @@ import { FastifyPluginAsync } from "fastify";
 import bcrypt from "bcrypt";
 import crypto from "crypto";
 import { db } from "../database.js";
-import { sigapLogin, SigapAuthError, SigapUnavailableError } from "../lib/sigap.js";
+import { sigapLogin, SigapAuthError, SigapRateLimitError, SigapUnavailableError } from "../lib/sigap.js";
 
 /**
  * Baris user lokal untuk admin SIGAP.
@@ -87,6 +87,9 @@ const authRoutes: FastifyPluginAsync = async (fastify) => {
     } catch (err) {
       if (err instanceof SigapAuthError) {
         return reply.status(401).send({ error: err.message });
+      }
+      if (err instanceof SigapRateLimitError) {
+        return reply.status(429).send({ error: err.message });
       }
       if (err instanceof SigapUnavailableError) {
         return reply.status(502).send({ error: err.message });

@@ -37,6 +37,14 @@ export class SigapUnavailableError extends Error {
   }
 }
 
+/** SIGAP membatasi percobaan login (rate limit per email). */
+export class SigapRateLimitError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = "SigapRateLimitError";
+  }
+}
+
 function pickString(obj: any, keys: string[]): string | undefined {
   for (const k of keys) {
     const v = obj?.[k];
@@ -73,6 +81,10 @@ export async function sigapLogin(email: string, password: string): Promise<Sigap
 
   if (resp.status === 401 || resp.status === 403) {
     throw new SigapAuthError("Email atau password salah");
+  }
+  if (resp.status === 429) {
+    // Rate limit SIGAP (biasanya per email).
+    throw new SigapRateLimitError("Terlalu banyak percobaan login. Coba lagi beberapa menit lagi.");
   }
   if (resp.status >= 500) {
     throw new SigapUnavailableError("Server SIGAP sedang bermasalah");
