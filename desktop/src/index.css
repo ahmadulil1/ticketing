@@ -140,7 +140,11 @@ button { font-family: inherit; }
 .ticket-badge { background: var(--destructive); color: white; border-radius: 999px; min-width: 20px; height: 20px; display: flex; align-items: center; justify-content: center; font-size: 0.6875rem; font-weight: 700; padding: 0 0.375rem; margin-left: 0.5rem; }
 
 /* Chat View */
-.chat-view { display: flex; flex-direction: column; height: 100%; min-width: 0; background: var(--bg); }
+.chat-view { display: flex; flex-direction: column; height: 100%; min-width: 0; min-height: 0; overflow: hidden; background: var(--bg); }
+.chat-view > .chat-header, .chat-view > .message-input { flex-shrink: 0; }
+.chat-scroll { flex: 1; min-height: 0; overflow-y: auto; overflow-x: hidden; overscroll-behavior: contain; }
+.chat-scroll .chat-thread { flex: none; overflow: visible; }
+.chat-scroll .attachment-gallery.compact button { width: 80px; height: 60px; }
 .message-input .input-row { align-items: flex-end; }
 .message-input textarea { min-width: 0; }
 .message-input .input-row > button { flex: 0 0 40px; width: 40px; height: 40px; padding: 0; }

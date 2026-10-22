@@ -36,7 +36,9 @@ export default function ChatView({ ticketId, onBack }: Props) {
   const [isInternal, setIsInternal] = useState(false);
   const [files, setFiles] = useState<File[]>([]);
   const fileInput = useRef<HTMLInputElement>(null);
-  const messagesEndRef = useRef<HTMLDivElement>(null);
+  const scrollRef = useRef<HTMLDivElement>(null);
+  const contentRef = useRef<HTMLDivElement>(null);
+  const followBottom = useRef(true);
 
   useRealtime(ticketId);
 
@@ -114,6 +116,7 @@ export default function ChatView({ ticketId, onBack }: Props) {
       return res.data;
     },
     onSuccess: () => {
+      followBottom.current = true;
       setMessage("");
       setFiles([]);
       setIsInternal(false);
@@ -124,8 +127,21 @@ export default function ChatView({ ticketId, onBack }: Props) {
   });
 
   useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
-  }, [messages]);
+    followBottom.current = true;
+  }, [ticketId]);
+
+  useEffect(() => {
+    const scroll = scrollRef.current;
+    const content = contentRef.current;
+    if (!scroll || !content) return;
+    const keepBottom = () => {
+      if (followBottom.current) scroll.scrollTop = scroll.scrollHeight;
+    };
+    const observer = new ResizeObserver(keepBottom);
+    observer.observe(content);
+    keepBottom();
+    return () => observer.disconnect();
+  }, [ticket?.id]);
 
   const doSend = () => {
     if ((message.trim() || files.length) && !sendMessage.isPending) sendMessage.mutate();
@@ -147,10 +163,15 @@ export default function ChatView({ ticketId, onBack }: Props) {
         </div>
       </header>
 
+      <div className="chat-scroll" ref={scrollRef} onScroll={e => {
+        const el = e.currentTarget;
+        followBottom.current = el.scrollHeight - el.scrollTop - el.clientHeight < 64;
+      }}>
+      <div ref={contentRef}>
       <div className="ticket-header-info">
         <h3>{ticket.title}</h3>
         <p>{ticket.description}</p>
-        <Gallery items={ticket.attachments || []} />
+        <Gallery items={(ticket.attachments || []).filter((a: { message_id?: string }) => !a.message_id)} compact />
         <div className="meta">
           <span>Pelapor: {ticket.requester_full_name || ticket.requester_name || "Tamu"}</span>
           <span>•</span>
@@ -177,7 +198,7 @@ export default function ChatView({ ticketId, onBack }: Props) {
         )}
       </div>
 
-      <div className="messages">
+      <div className="messages chat-thread">
         {isLoading ? (
           <div className="loading" style={{flex: 1}}><span className="spinner" /></div>
         ) : messages?.length === 0 ? (
@@ -215,7 +236,8 @@ export default function ChatView({ ticketId, onBack }: Props) {
             {typing.map(t => t.username).join(", ")} sedang mengetik...
           </div>
         )}
-        <div ref={messagesEndRef} />
+      </div>
+      </div>
       </div>
 
       {ticket.status !== "ditutup" && (

@@ -2,7 +2,7 @@ import { useRef, useState } from "react";
 import api from "../services/api";
 import { getDeviceId, getDeviceSecret } from "../services/device";
 
-export default function Gallery({ items }: { items: Array<{ id: string; original_name?: string }> }) {
+export default function Gallery({ items, compact = false }: { items: Array<{ id: string; original_name?: string }>; compact?: boolean }) {
   const dialog = useRef<HTMLDialogElement>(null);
   const [index, setIndex] = useState(0);
   if (!items?.length) return null;
@@ -17,7 +17,7 @@ export default function Gallery({ items }: { items: Array<{ id: string; original
     return `${api.defaults.baseURL}/attachments/${id}?${params}`;
   };
   return <>
-    <div className="attachment-gallery">{items.map((item, i) =>
+    <div className={`attachment-gallery${compact ? " compact" : ""}`}>{items.map((item, i) =>
       <button key={item.id} onClick={() => { setIndex(i); dialog.current?.showModal(); }} aria-label={`Lihat ${item.original_name || "gambar"}`}>
         <img src={url(item.id)} alt={item.original_name || "Lampiran"} loading="lazy" />
       </button>
