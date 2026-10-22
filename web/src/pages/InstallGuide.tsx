@@ -6,8 +6,6 @@ import {
   ShieldAlert,
   CheckCircle2,
   TriangleAlert,
-  ExternalLink,
-  ArrowLeft,
 } from "lucide-react";
 
 /**
@@ -19,7 +17,6 @@ import {
 
 const API = (import.meta.env.VITE_API_URL as string | undefined) || "";
 const BASE = API.replace(/\/api\/?$/, "");
-const RELEASE_URL = "https://github.com/ahmadulil1/ticketing/releases/latest";
 
 type OS = "windows" | "macos" | "linux";
 
@@ -157,7 +154,9 @@ export default function InstallGuide() {
   const [version, setVersion] = useState<string | null>(null);
 
   useEffect(() => {
-    setOs(detectOS());
+    // Linux tak punya binary -> tampilkan langkah Windows sebagai default.
+    const d = detectOS();
+    setOs(d === "macos" ? "macos" : "windows");
   }, []);
 
   useEffect(() => {
@@ -178,9 +177,6 @@ export default function InstallGuide() {
   return (
     <div className="install-page">
       <div className="install-head">
-        <button className="btn btn-outline" onClick={() => history.back()}>
-          <ArrowLeft size={16} /> Kembali
-        </button>
         <h1>Install Ticketing Desktop</h1>
         {version && <span className="install-ver">Versi {version}</span>}
       </div>
@@ -203,14 +199,6 @@ export default function InstallGuide() {
         >
           <Apple size={16} /> macOS
         </button>
-        <a
-          className="install-os-btn"
-          href={RELEASE_URL}
-          target="_blank"
-          rel="noreferrer"
-        >
-          <ExternalLink size={16} /> Rilis lain
-        </a>
       </div>
 
       <div className="install-dl">

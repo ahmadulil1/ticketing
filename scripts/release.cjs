@@ -145,19 +145,17 @@ async function main() {
 
   fs.mkdirSync(DOWNLOADS, { recursive: true });
 
-  const baseName = `Ticketing_${VERSION}_x64-setup.exe`;
+  // Satu file installer saja di server: Ticketing-setup.exe (nama stabil).
+  // Link /download dan /downloads/Ticketing-setup.exe sama-sama menunjuk
+  // file ini, jadi tak ada lagi link per-versi yang harus diinvalidasi.
+  const baseName = "Ticketing-setup.exe";
   const target = path.join(DOWNLOADS, baseName);
-  const latest = path.join(DOWNLOADS, "Ticketing-setup.exe");
 
   fs.copyFileSync(exePath, target);
-  fs.copyFileSync(exePath, latest);
   fs.copyFileSync(sigPath, target + ".sig");
-  fs.copyFileSync(sigPath, latest + ".sig");
   try {
     fs.chmodSync(target, 0o644);
-    fs.chmodSync(latest, 0o644);
     fs.chmodSync(target + ".sig", 0o644);
-    fs.chmodSync(latest + ".sig", 0o644);
   } catch {}
 
   const signature = fs.readFileSync(sigPath, "utf8").trim();
@@ -180,6 +178,7 @@ async function main() {
     signature,
     url: `https://ticketing.marisoncloud.com/downloads/${baseName}`,
   };
+  // baseName = Ticketing-setup.exe (nama stabil, satu link untuk semua versi)
   manifest.release_id = `ticketing-${VERSION}`;
 
   fs.writeFileSync(manifestPath, JSON.stringify(manifest, null, 2) + "\n");
@@ -205,7 +204,7 @@ async function main() {
   console.log("");
   console.log(`Rilis ${VERSION} terpasang:`);
   console.log(`  file    : ${target}`);
-  console.log(`  short   : ${latest}`);
+  console.log(`  short   : https://ticketing.marisoncloud.com/download`);
   console.log(`  manifest: ${manifestPath}`);
   console.log("");
   console.log("Link:");

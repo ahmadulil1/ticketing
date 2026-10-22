@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { Download, Monitor, Apple, ExternalLink, ChevronDown, BookOpen } from "lucide-react";
+import { Download, Monitor, Apple, ChevronDown, BookOpen } from "lucide-react";
 import { Link } from "react-router-dom";
 
 /**
@@ -13,7 +13,6 @@ import { Link } from "react-router-dom";
 
 const API = (import.meta.env.VITE_API_URL as string | undefined) || "";
 const BASE = API.replace(/\/api\/?$/, "");
-const RELEASE_URL = "https://github.com/ahmadulil1/ticketing/releases/latest";
 
 function detectPlatform(): "windows" | "macos" | "linux" {
   const p = (navigator.userAgentData?.platform || navigator.platform || navigator.userAgent).toLowerCase();
@@ -59,12 +58,12 @@ export default function DownloadMenu() {
     };
   }, [open]);
 
+  // Satu link: sesuai OS. Linux tak punya binary, arahkan ke installer Windows
+  // (menu di bawah tetap menampilkan opsi macOS).
   const primary =
-    plat === "windows"
-      ? { label: "Windows (.exe)", href: `${BASE}/download` }
-      : plat === "macos"
-        ? { label: "macOS (.dmg)", href: `${BASE}/downloads/Ticketing.dmg` }
-        : { label: "Rilis GitHub", href: RELEASE_URL };
+    plat === "macos"
+      ? { label: "macOS (.dmg)", href: `${BASE}/downloads/Ticketing.dmg` }
+      : { label: "Windows (.exe)", href: `${BASE}/download` };
 
   return (
     <div className="dl-menu" ref={ref}>
@@ -118,16 +117,6 @@ export default function DownloadMenu() {
               <span>macOS (.dmg)</span>
             </a>
           )}
-          <a
-            className="dl-item"
-            href={RELEASE_URL}
-            target="_blank"
-            rel="noreferrer"
-            onClick={() => setOpen(false)}
-          >
-            <ExternalLink size={15} />
-            <span>Semua rilis (GitHub)</span>
-          </a>
           <Link
             className="dl-item"
             to="/install"
