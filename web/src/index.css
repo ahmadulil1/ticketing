@@ -312,6 +312,11 @@ body {
 }
 .device-card-clean-title { display: flex; flex-direction: column; gap: 0.125rem; min-width: 0; flex: 1; }
 .device-card-clean-title strong { font-size: 0.875rem; color: var(--text); overflow-wrap: anywhere; }
+.device-card-clean-open {
+  background: none; border: none; padding: 0; font: inherit; font-size: 0.875rem; font-weight: 700;
+  color: var(--text); text-align: left; cursor: pointer; overflow-wrap: anywhere;
+}
+.device-card-clean-open:hover { color: var(--primary); }
 .device-card-clean-title span {
   font-size: 0.6875rem; overflow: hidden; display: -webkit-box;
   -webkit-line-clamp: 2; -webkit-box-orient: vertical; line-clamp: 2;

@@ -136,13 +136,14 @@ export default function DeviceList() {
               const label = row.device_name || row.hostname || "Aset tanpa device";
               const open = () => setSelected({ inventoryId: row.inventoryId || null, deviceId: row.device_id || null });
               return (
-                <article key={row.rowId} className="device-card-clean" onClick={open} role="button" tabIndex={0}
-                  onKeyDown={e => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); open(); } }}>
+                <article key={row.rowId} className="device-card-clean" onClick={open}>
                   <header className="device-card-clean-head">
                     <span className="device-card-clean-icon">{row.device_id ? <Monitor size={15} /> : <Package size={15} />}</span>
                     <div className="device-card-clean-title">
-                      <strong>{label}</strong>
-                      <span className="muted">{row.os_name || "OS belum dilaporkan"}</span>
+                      {/* Tombol sungguhan, bukan strong: kartu tak boleh role=button
+                          karena memuat tombol lain (nested interactive = a11y rusak). */}
+                      <button className="device-card-clean-open" onClick={e => { e.stopPropagation(); open(); }}>{label}</button>
+                      <span>{row.os_name || "OS belum dilaporkan"}</span>
                     </div>
                     {row.lokasi && <span className="device-card-clean-lokasi">{row.lokasi}</span>}
                   </header>

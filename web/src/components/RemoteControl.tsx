@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import api from "../lib/api";
 import { Video, StopCircle, X, Maximize, Shrink } from "lucide-react";
 
@@ -298,8 +299,9 @@ export default function RemoteControl({
         </button>
       )}
 
-      {viewerOpen && session && (
-        <div className="remote-viewer-overlay" onClick={(e) => e.stopPropagation()}>
+      {viewerOpen && session &&
+        createPortal(
+          <div className="remote-viewer-overlay" onClick={(e) => e.stopPropagation()}>
           <div className="remote-viewer-panel">
             <div className="remote-viewer-head">
               <h2>Remote: {deviceName}</h2>
@@ -307,7 +309,7 @@ export default function RemoteControl({
                 {viewerConnected ? "● Terhubung" : "○ Menyambung..."}
               </div>
               <button
-                className="btn btn-outline remote-zoom-btn"
+                className="btn btn-tinted btn-sm remote-zoom-btn"
                 onClick={() => setActualSize((v) => !v)}
                 title={
                   actualSize
@@ -319,7 +321,7 @@ export default function RemoteControl({
                 {actualSize ? "Pas" : "1:1"}
               </button>
               <button
-                className="btn btn-outline"
+                className="btn btn-quiet btn-sm"
                 onClick={() => {
                   setViewerOpen(false);
                   setSession(null);
@@ -375,13 +377,14 @@ export default function RemoteControl({
               )}
             </div>
             <div className="remote-viewer-controls">
-              <button className="btn btn-destructive" onClick={endSession}>
+              <button className="btn btn-danger" onClick={endSession}>
                 <StopCircle size={16} /> Akhiri Sesi Remote
               </button>
             </div>
           </div>
-        </div>
-      )}
+        </div>,
+          document.body
+        )}
     </>
   );
 }

@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { createPortal } from "react-dom";
 import { X, ChevronLeft, ChevronRight, Images } from "lucide-react";
 import { attachmentUrl, formatSize } from "../lib/attachments";
 import type { AttachmentMeta } from "../lib/attachments";
@@ -53,8 +54,9 @@ export default function Gallery({
         ))}
       </div>
 
-      {open && (
-        <div className="lightbox" onClick={() => setOpen(false)}>
+      {open &&
+        createPortal(
+          <div className="lightbox" onClick={() => setOpen(false)}>
           <button className="lightbox-close" onClick={() => setOpen(false)} aria-label="Tutup">
             <X size={20} />
           </button>
@@ -92,8 +94,9 @@ export default function Gallery({
               <ChevronRight size={24} />
             </button>
           )}
-        </div>
-      )}
+        </div>,
+          document.body
+        )}
     </>
   );
 }
