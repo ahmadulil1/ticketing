@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import api from "../lib/api";
-import { Video, StopCircle, X } from "lucide-react";
+import { Video, StopCircle, X, Maximize, Shrink } from "lucide-react";
 
 /**
  * Remote desktop: tombol mulai sesi + dialog viewer live.
@@ -31,6 +31,11 @@ export default function RemoteControl({
   const [frameData, setFrameData] = useState<string | null>(null);
   const [viewerConnected, setViewerConnected] = useState(false);
   const [sessionEnded, setSessionEnded] = useState(false);
+  // Posisi kursor remote terakhir (ternormalisasi 0..1). Dipakai buat
+  // menggambar marker kursor, karena frame tak memuat kursor OS.
+  const [cursor, setCursor] = useState<{ x: number; y: number } | null>(null);
+  // true = tampilkan layar pada ukuran asli (1:1) + scrollable
+  const [actualSize, setActualSize] = useState(false);
   const wsRef = useRef<WebSocket | null>(null);
 
   // Remote desktop (capture + kontrol) diimplementasi untuk macOS + Windows.
@@ -145,6 +150,11 @@ export default function RemoteControl({
   const handleMouseMove = useCallback(
     (e: React.MouseEvent) => {
       const { x, y } = toNorm(e);
+      // Kursor remote digambar sendiri di viewer (position terakhir).
+      // Capture layar tak pernah menyertakan kursor OS (GDI di Windows,
+      // screencapture tanpa -C di macOS), jadi tanpa ini yang kelihatan
+      // cuma panah browser.
+      setCursor({ x, y });
       sendInput({ type: "MouseMove", x, y, norm: true });
     },
     [sendInput]
@@ -297,6 +307,18 @@ export default function RemoteControl({
                 {viewerConnected ? "● Terhubung" : "○ Menyambung..."}
               </div>
               <button
+                className="btn btn-outline remote-zoom-btn"
+                onClick={() => setActualSize((v) => !v)}
+                title={
+                  actualSize
+                    ? "Tampilkan layar sesuai ukuran panel"
+                    : "Tampilkan layar 1:1 (ukuran asli, bisa di-scroll)"
+                }
+              >
+                {actualSize ? <Shrink size={15} /> : <Maximize size={15} />}
+                {actualSize ? "Pas" : "1:1"}
+              </button>
+              <button
                 className="btn btn-outline"
                 onClick={() => {
                   setViewerOpen(false);
@@ -317,19 +339,28 @@ export default function RemoteControl({
                   </p>
                 </div>
               ) : frameData ? (
-                <img
-                  src={frameData}
-                  alt="Remote screen"
-                  className="remote-screen"
-                  onMouseMove={handleMouseMove}
-                  onMouseDown={handleMouseDown}
-                  onMouseUp={handleMouseUp}
-                  onKeyDown={handleKeyDown}
-                  onKeyUp={handleKeyUp}
-                  onContextMenu={(e) => e.preventDefault()}
-                  tabIndex={0}
-                  autoFocus
-                />
+                <div className={actualSize ? "remote-screen-wrap actual" : "remote-screen-wrap"}>
+                  <img
+                    src={frameData}
+                    alt="Remote screen"
+                    className={actualSize ? "remote-screen actual" : "remote-screen"}
+                    onMouseMove={handleMouseMove}
+                    onMouseDown={handleMouseDown}
+                    onMouseUp={handleMouseUp}
+                    onMouseLeave={() => setCursor(null)}
+                    onKeyDown={handleKeyDown}
+                    onKeyUp={handleKeyUp}
+                    onContextMenu={(e) => e.preventDefault()}
+                    tabIndex={0}
+                    autoFocus
+                  />
+                  {cursor && (
+                    <span
+                      className="remote-cursor"
+                      style={{ left: `${cursor.x * 100}%`, top: `${cursor.y * 100}%` }}
+                    />
+                  )}
+                </div>
               ) : (
                 <div className="remote-screen-placeholder">
                   <Video size={64} className="remote-screen-icon" />

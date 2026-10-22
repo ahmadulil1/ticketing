@@ -12,9 +12,9 @@
 use crate::remote_input::RemoteInput;
 
 /// Lebar maksimum frame (px), sama dengan versi macOS.
-pub const FRAME_MAX_WIDTH: u32 = 1280;
-/// Kualitas JPEG 0-100.
-pub const FRAME_JPEG_QUALITY: u8 = 50;
+pub const FRAME_MAX_WIDTH: u32 = 1920;
+/// Kualitas JPEG 0-100. 65 -> ~300KB per frame (1920px).
+pub const FRAME_JPEG_QUALITY: u8 = 65;
 
 // ---------------------------------------------------------------------------
 // Capture layar

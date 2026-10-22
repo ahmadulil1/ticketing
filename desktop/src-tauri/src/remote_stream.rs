@@ -2,13 +2,13 @@ use serde_json::json;
 use tauri::{AppHandle, Emitter, State};
 use crate::remote_control::RemoteControlState;
 
-/// Lebar maksimum frame (px). Layar 1920px di-downscale ke 1280px supaya
-/// payload base64 turun dari ~1.2MB (PNG) jadi ~120KB (JPEG q50).
+/// Lebar maksimum frame (px). Layar 4K di-downscale ke 1920px supaya
+/// frame tetap tajam saat di-display besar di panel web admin.
 #[cfg(target_os = "macos")]
-const FRAME_MAX_WIDTH: u32 = 1280;
-/// Kualitas JPEG 0-100. 50 masih terbaca jelas untuk keperluan remote.
+const FRAME_MAX_WIDTH: u32 = 1920;
+/// Kualitas JPEG 0-100. 65 -> ~300KB per frame (1920px).
 #[cfg(target_os = "macos")]
-const FRAME_JPEG_QUALITY: u32 = 50;
+const FRAME_JPEG_QUALITY: u32 = 65;
 
 /// Tangkap layar penuh, kompres ke JPEG, kirim ke frontend lewat Tauri event
 /// `remote-frame`. Frontend meneruskannya via WebSocket ke web viewer.
@@ -73,6 +73,9 @@ pub async fn remote_capture_and_send(
     let out_path = format!("/tmp/remote_frame_{}.jpg", std::process::id());
 
     // 1. Tangkap layar (format PNG native, kualitas lossless)
+    // Tanpa -C: kursor mouse tak ikut tertangkap. Kursor remote digambar
+    // sendiri di panel web (viewer), jadi konsisten di macOS & Windows
+    // dan tak perlu nunggu frame baru (kursor OS cuma update 2x/detik).
     let output = Command::new("screencapture")
         .args(["-x", "-o", "-t", "png", &raw_path])
         .output()
@@ -86,10 +89,17 @@ pub async fn remote_capture_and_send(
     }
 
     // 2. Downscale + kompres ke JPEG
+    // PENTING: `-s format jpeg` wajib ada. Tanpa itu sips tetap nulis PNG
+    // (meski file-nya .jpg) -> payload 460KB dan.web nganggapnya JPEG
+    // padahal bukan. `-s formatOptions` sendiri cuma berlaku kalau format
+    // sudah diganti ke jpeg.
     let scaled = Command::new("sips")
         .args([
             "-Z",
             &FRAME_MAX_WIDTH.to_string(),
+            "-s",
+            "format",
+            "jpeg",
             "-s",
             "formatOptions",
             &FRAME_JPEG_QUALITY.to_string(),
