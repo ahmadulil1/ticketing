@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { useParams } from "react-router-dom";
 
 type Photo = { id: string; original_name: string };
@@ -10,6 +10,14 @@ export default function PhotoGallery() {
   const [index, setIndex] = useState(0);
   const [zoom, setZoom] = useState(0);
   const [error, setError] = useState("");
+  const stage = useRef<HTMLDivElement>(null);
+  const centerPhoto = () => {
+    const el = stage.current;
+    if (!el) return;
+    el.scrollLeft = (el.scrollWidth - el.clientWidth) / 2;
+    el.scrollTop = (el.scrollHeight - el.clientHeight) / 2;
+  };
+  useLayoutEffect(centerPhoto, [zoom, index, photos.length]);
   useEffect(() => {
     history.replaceState(null, "", location.pathname);
     document.title = "Galeri foto — Ticketing";
@@ -41,10 +49,13 @@ export default function PhotoGallery() {
       {zoom > 0 && <span>{zoom}%</span>}
     </header>
     {error ? <p role="alert" className="photo-error">{error}</p> : photo ?
-      <div className={`photo-stage${zoom ? " zoomed" : ""}`}>
+      <div ref={stage} className={`photo-stage${zoom ? " zoomed" : ""}`}>
+        <div className="photo-canvas">
         <img key={photo.id} src={`/api/attachments/${photo.id}?gallery_token=${encodeURIComponent(access)}`} alt={photo.original_name}
+          onLoad={centerPhoto}
           referrerPolicy="no-referrer" onError={() => setError("Foto gagal dimuat atau tautan kedaluwarsa. Buka ulang dari aplikasi.")}
           style={zoom ? { maxWidth: "none", maxHeight: "none", zoom: zoom / 100 } : undefined} />
+        </div>
       </div> : <p>Memuat foto...</p>}
   </main>;
 }
