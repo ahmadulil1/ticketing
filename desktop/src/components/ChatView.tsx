@@ -4,8 +4,9 @@ import api from "../services/api";
 import { useRealtime } from "../hooks/useRealtime";
 import { useDragRegion } from "../hooks/useDragRegion";
 import dayjs from "dayjs";
-import { ArrowLeft, Send } from "lucide-react";
-import { getCurrentUser, isAgent as isAgentRole, getDeviceId } from "../services/device";
+import { ArrowLeft, Send, Paperclip } from "lucide-react";
+import Gallery from "./Gallery";
+import { getCurrentUser, isAgent as isAgentRole, getDeviceId, getDeviceSecret } from "../services/device";
 
 const statusColors: Record<string, string> = {
   baru: "status-baru",
@@ -33,6 +34,8 @@ export default function ChatView({ ticketId, onBack }: Props) {
   const queryClient = useQueryClient();
   const [message, setMessage] = useState("");
   const [isInternal, setIsInternal] = useState(false);
+  const [files, setFiles] = useState<File[]>([]);
+  const fileInput = useRef<HTMLInputElement>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
   useRealtime(ticketId);
@@ -94,15 +97,25 @@ export default function ChatView({ ticketId, onBack }: Props) {
 
   const sendMessage = useMutation({
     mutationFn: async () => {
+      let attachmentIds: string[] = [];
+      if (files.length) {
+        const form = new FormData();
+        files.forEach(file => form.append("files", file));
+        const params = isAgent ? "" : `?${new URLSearchParams({ device_id: getDeviceId(), device_secret: getDeviceSecret() })}`;
+        const uploaded = await api.post(`/attachments/ticket/${ticketId}${params}`, form, { headers: { "Content-Type": "multipart/form-data" } });
+        attachmentIds = uploaded.data.map((item: { id: string }) => item.id);
+      }
       const res = await api.post(`/messages/ticket/${ticketId}${guestQ}`, {
         body: message.trim(),
         message_type: isAgent && isInternal ? "internal" : "public",
         clientRequestId: crypto.randomUUID(),
+        attachment_ids: attachmentIds,
       });
       return res.data;
     },
     onSuccess: () => {
       setMessage("");
+      setFiles([]);
       setIsInternal(false);
       setTyping.mutate(false);
       queryClient.invalidateQueries({ queryKey: ["messages", ticketId] });
@@ -115,7 +128,7 @@ export default function ChatView({ ticketId, onBack }: Props) {
   }, [messages]);
 
   const doSend = () => {
-    if (message.trim() && !sendMessage.isPending) sendMessage.mutate();
+    if ((message.trim() || files.length) && !sendMessage.isPending) sendMessage.mutate();
   };
 
   if (!ticket) return <div className="loading"><span className="spinner" />Memuat...</div>;
@@ -137,6 +150,7 @@ export default function ChatView({ ticketId, onBack }: Props) {
       <div className="ticket-header-info">
         <h3>{ticket.title}</h3>
         <p>{ticket.description}</p>
+        <Gallery items={ticket.attachments || []} />
         <div className="meta">
           <span>Pelapor: {ticket.requester_full_name || ticket.requester_name || "Tamu"}</span>
           <span>•</span>
@@ -189,6 +203,7 @@ export default function ChatView({ ticketId, onBack }: Props) {
                     {mine && msg.read_at && <span className="read-tick" title="Dibaca">✓✓</span>}
                   </div>
                   <div className="message-body">{msg.body}</div>
+                  <Gallery items={msg.attachments || []} />
                   {msg.message_type === "internal" && <div className="internal-label">Catatan Internal</div>}
                 </div>
               );
@@ -205,7 +220,15 @@ export default function ChatView({ ticketId, onBack }: Props) {
 
       {ticket.status !== "ditutup" && (
         <div className="message-input">
+          {files.length > 0 && <div>{files.map(f => f.name).join(", ")} <button onClick={() => setFiles([])}>Batalkan gambar</button></div>}
+          {sendMessage.isError && <p role="alert">{(sendMessage.error as any)?.response?.data?.error || "Gagal mengirim. Gambar dan pesan tetap tersimpan, coba lagi."}</p>}
           <div className="input-row">
+            <input ref={fileInput} hidden type="file" accept="image/png,image/jpeg,image/webp,image/gif,image/bmp" multiple onChange={e => {
+              const selected = Array.from(e.target.files || []);
+              if (selected.length > 5 || selected.some(f => f.size > 5 * 1024 * 1024)) { alert("Maksimal 5 gambar, masing-masing 5 MB"); return; }
+              setFiles(selected); e.target.value = "";
+            }} />
+            <button aria-label="Lampirkan gambar" onClick={() => fileInput.current?.click()} disabled={sendMessage.isPending}><Paperclip size={18} /></button>
             <textarea
               placeholder={isInternal ? "Catatan internal (hanya agent)..." : "Ketik pesan... (Enter kirim, Shift+Enter baris baru)"}
               value={message}
@@ -219,7 +242,7 @@ export default function ChatView({ ticketId, onBack }: Props) {
               }}
               style={isInternal ? { background: "#fff8e1", borderColor: "#f59e0b" } : undefined}
             />
-            <button onClick={doSend} disabled={!message.trim() || sendMessage.isPending}>
+            <button onClick={doSend} disabled={(!message.trim() && !files.length) || sendMessage.isPending}>
               <Send size={18} />
             </button>
           </div>

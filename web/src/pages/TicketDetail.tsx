@@ -3,10 +3,11 @@ import { useRealtime } from "../hooks/useRealtime";
 import { useParams, useNavigate } from "react-router-dom";
 import { useState, useEffect, useRef } from "react";
 import Pagination from "../components/Pagination";
+import Gallery, { GalleryLabel } from "../components/Gallery";
 import api from "../lib/api";
 import { useTheme } from "../hooks/useTheme";
 import dayjs from "dayjs";
-import { ArrowLeft, Send, Sun, Moon } from "lucide-react";
+import { ArrowLeft, Send, Sun, Moon, Paperclip, X, Loader2 } from "lucide-react";
 
 const statusColors: Record<string, string> = {
   baru: "status-baru",
@@ -24,6 +25,10 @@ export default function TicketDetail() {
   const [isInternal, setIsInternal] = useState(false);
   const [msgPage, setMsgPage] = useState<number | null>(null); // null = ikut halaman terakhir
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  // Gambar yang dipilih untuk dikirim (belum diupload)
+  const [pendingFiles, setPendingFiles] = useState<File[]>([]);
+  const [previewUrl, setPreviewUrl] = useState<string | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const { data: ticket } = useQuery({
     queryKey: ["ticket", id],
@@ -100,15 +105,28 @@ export default function TicketDetail() {
       const reqId = typeof crypto !== "undefined" && crypto.randomUUID
         ? crypto.randomUUID()
         : Date.now().toString(36) + Math.random().toString(36).slice(2);
+
+      // 1. Upload gambar dulu (bila ada), dapat id lampiran
+      let attachmentIds: string[] = [];
+      if (pendingFiles.length) {
+        const fd = new FormData();
+        pendingFiles.forEach((f) => fd.append("files", f));
+        const up = await api.post("/attachments/ticket/" + id, fd, { headers: { "Content-Type": "multipart/form-data" } });
+        attachmentIds = (up.data || []).map((a: any) => a.id);
+      }
+
+      // 2. Kirim pesan + rujukan lampiran
       const res = await api.post("/messages/ticket/" + id, {
         body: message,
         message_type: isInternal ? "internal" : "public",
         clientRequestId: reqId,
+        ...(attachmentIds.length ? { attachment_ids: attachmentIds } : {}),
       });
       return res.data;
     },
     onSuccess: () => {
       setMessage("");
+      setPendingFiles([]);
       setMsgPage(null);
       setTyping.mutate(false);
       queryClient.invalidateQueries({ queryKey: ["messages", id] });
@@ -137,6 +155,33 @@ export default function TicketDetail() {
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [messages?.length, msgPage]);
+
+  // Judul tab: bedakan tiap halaman (tiket, device, inventaris, ...)
+  useEffect(() => {
+    if (!ticket) return;
+    document.title = `${ticket.ticket_number} · ${ticket.title}`.slice(0, 90) + " — Ticketing";
+  }, [ticket]);
+
+  // Pratinjau gambar terpilih
+  useEffect(() => {
+    if (!pendingFiles.length) {
+      setPreviewUrl(null);
+      return;
+    }
+    const url = URL.createObjectURL(pendingFiles[0]);
+    setPreviewUrl(url);
+    return () => URL.revokeObjectURL(url);
+  }, [pendingFiles]);
+
+  const pickFiles = (list: FileList | null) => {
+    if (!list?.length) return;
+    const imgs = Array.from(list).filter((f) => f.type.startsWith("image/"));
+    if (!imgs.length) return;
+    if (pendingFiles.length + imgs.length > 5 || imgs.some(f => f.size > 5 * 1024 * 1024)) {
+      alert("Maksimal 5 gambar, masing-masing 5 MB"); return;
+    }
+    setPendingFiles((prev) => [...prev, ...imgs].slice(0, 5));
+  };
 
   if (!ticket) return <div className="loading">Memuat...</div>;
 
@@ -171,8 +216,16 @@ export default function TicketDetail() {
       </header>
 
       <div className="ticket-header-info">
+        <span className="muted">Judul laporan</span>
         <h3>{ticket.title}</h3>
-        <p>{ticket.description}</p>
+        <span className="muted">Detail masalah</span>
+        <p className="ticket-description">{ticket.description}</p>
+        {ticket.attachments?.length > 0 && (
+          <div className="ticket-attachments">
+            <GalleryLabel count={ticket.attachments.length} />
+            <Gallery items={ticket.attachments} />
+          </div>
+        )}
         <div className="meta">
           <span>Pelapor: {ticket.requester_full_name || ticket.requester_name || "Karyawan"}</span>
           {ticket.device_name && <span>Device: {ticket.device_name}</span>}
@@ -223,6 +276,9 @@ export default function TicketDetail() {
                 {mine && msg.read_at && <span className="read-tick" title="Dibaca">✓✓</span>}
               </div>
               <div className="message-body">{msg.body}</div>
+              {msg.attachments?.length > 0 && (
+                <Gallery items={msg.attachments} compact />
+              )}
               {msg.message_type === "internal" && (
                 <div className="internal-label">Catatan Internal</div>
               )}
@@ -250,7 +306,46 @@ export default function TicketDetail() {
 
       {ticket.status !== "ditutup" && (
         <div className="message-input">
+          {sendMessage.isError && <p role="alert">{(sendMessage.error as any)?.response?.data?.error || "Gagal mengirim. Pesan dan gambar tetap tersedia, coba lagi."}</p>}
+          {pendingFiles.length > 0 && (
+            <div className="attach-preview">
+              {previewUrl && <img src={previewUrl} alt="Pratinjau" />}
+              <div className="attach-preview-info">
+                <strong>{pendingFiles.length} gambar siap dikirim</strong>
+                <span className="muted">
+                  {pendingFiles.map((f) => f.name).join(", ")}
+                </span>
+              </div>
+              <button
+                className="icon-btn"
+                onClick={() => setPendingFiles([])}
+                aria-label="Batalkan gambar"
+              >
+                <X size={15} />
+              </button>
+            </div>
+          )}
           <div className="input-row">
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept="image/*"
+              multiple
+              hidden
+              onChange={(e) => {
+                pickFiles(e.target.files);
+                e.target.value = "";
+              }}
+            />
+            <button
+              type="button"
+              className="icon-btn attach-btn"
+              onClick={() => fileInputRef.current?.click()}
+              title="Lampirkan gambar"
+              aria-label="Lampirkan gambar"
+            >
+              {sendMessage.isPending ? <Loader2 size={17} /> : <Paperclip size={17} />}
+            </button>
             <textarea
               placeholder="Ketik pesan... (Enter untuk kirim)"
               value={message}
@@ -261,7 +356,7 @@ export default function TicketDetail() {
                 if (e.key === "Enter" && !e.shiftKey) {
                   e.preventDefault();
                   const v = message.trim();
-                  if (v && !sendMessage.isPending) sendMessage.mutate();
+                  if ((v || pendingFiles.length) && !sendMessage.isPending) sendMessage.mutate();
                 }
               }}
             />
@@ -269,9 +364,9 @@ export default function TicketDetail() {
               type="button"
               onClick={() => {
                 const v = message.trim();
-                if (v && !sendMessage.isPending) sendMessage.mutate();
+                if ((v || pendingFiles.length) && !sendMessage.isPending) sendMessage.mutate();
               }}
-              disabled={!message.trim() || sendMessage.isPending}
+              disabled={(!message.trim() && !pendingFiles.length) || sendMessage.isPending}
             >
               <Send size={20} />
             </button>

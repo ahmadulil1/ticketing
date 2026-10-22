@@ -98,6 +98,7 @@ export default function MiniWindow() {
   };
 
   const handleCreateTicket = async (data: {
+    title?: string;
     description: string;
     priority?: string;
     deviceId?: string;

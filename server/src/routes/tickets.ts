@@ -6,76 +6,11 @@ import { v4 as uuidv4 } from "uuid";
 import fs from "fs";
 import path from "path";
 import util from "util";
-import sharp from "sharp";
 import PDFDocument from "pdfkit";
+import { saveAttachment, listAttachments } from "../lib/attachments.js";
 const writeFile = util.promisify(fs.writeFile);
 const mkdir = util.promisify(fs.mkdir);
 
-const ALLOWED_IMAGE = ["image/png", "image/jpeg", "image/jpg", "image/webp", "image/gif", "image/bmp"];
-
-// Signature magic bytes: cegah spoofing mimetype (file .txt type=image/png)
-const MAGIC: Array<{ bytes: number[]; label: string }> = [
-  { bytes: [0x89, 0x50, 0x4e, 0x47], label: "PNG" },
-  { bytes: [0xff, 0xd8, 0xff], label: "JPEG" },
-  { bytes: [0x47, 0x49, 0x46, 0x38], label: "GIF" },
-  { bytes: [0x42, 0x4d], label: "BMP" },
-  // WebP: "RIFF....WEBP"
-  { bytes: [0x52, 0x49, 0x46, 0x46], label: "WEBP" },
-];
-
-function detectImageFormat(buf: Buffer): string | null {
-  for (const m of MAGIC) {
-    if (buf.length >= m.bytes.length && m.bytes.every((b, i) => buf[i] === b)) {
-      if (m.label === "WEBP" && buf.length >= 12) {
-        const webp = buf.slice(8, 12).toString("ascii");
-        return webp === "WEBP" ? "WEBP" : null;
-      }
-      return m.label;
-    }
-  }
-  return null;
-}
-
-async function saveAttachment(ticketId: string, file: any) {
-  // ponytail: lempar error jelas — return null diam-diam bikin frontend mengira sukses (AT-05/06)
-  if (!ALLOWED_IMAGE.includes((file.mimetype || "").toLowerCase())) {
-    throw new Error(`File "${file.filename}" bukan gambar yang diizinkan`);
-  }
-
-  // ponytail: @fastify/multipart v9 saveRequestFiles() menulis ke tmp file lalu
-  // menguras stream — toBuffer() setelahnya kosong. Baca dari file tmp (filepath).
-  const buffer = file.filepath
-    ? fs.readFileSync(file.filepath)
-    : ((file as any)._buf ?? await file.toBuffer());
-  const maxMB = Math.round(config.storage.maxFileSize / (1024 * 1024));
-  if (buffer.length > config.storage.maxFileSize) {
-    throw new Error(`File "${file.filename}" melebihi ${maxMB}MB`);
-  }
-
-  const fmt = detectImageFormat(buffer);
-  if (!fmt) {
-    throw new Error(`File "${file.filename}" rusak atau bukan gambar valid`);
-  }
-
-  // Konversi ke WebP (libwebp via sharp)
-  const webpBuffer = await sharp(buffer)
-    .webp({ quality: 82 })
-    .toBuffer();
-
-  const storedName = `${uuidv4()}.webp`;
-  const uploadDir = path.join(config.storage.path, ticketId);
-  await mkdir(uploadDir, { recursive: true });
-  const filePath = path.join(uploadDir, storedName);
-  await writeFile(filePath, webpBuffer);
-
-  const result = await db.query(
-    `INSERT INTO attachments (ticket_id, original_name, stored_name, mime_type, size, storage_path, scan_status)
-     VALUES ($1, $2, $3, $4, $5, $6, 'clean') RETURNING *`,
-    [ticketId, file.filename, storedName, "image/webp", webpBuffer.length, filePath]
-  );
-
-  return result.rows[0];
-}
 
 async function generateTicketNumber(): Promise<string> {
   const date = dayjs().format("YYYYMMDD");
@@ -255,7 +190,8 @@ const ticketRoutes: FastifyPluginAsync = async (fastify) => {
   
   // Guest ticket (device identity, tanpa login)
   fastify.post("/guest", async (request, reply) => {
-    const { description, device_id, device_name, priority, lokasi } = request.body as {
+    const { title: requestedTitle, description, device_id, device_name, priority, lokasi } = request.body as {
+      title?: string;
       description: string;
       device_id: string;
       device_name?: string;
@@ -286,7 +222,10 @@ const ticketRoutes: FastifyPluginAsync = async (fastify) => {
     }
 
     const ticketNumber = await generateTicketNumber();
-    const title = description.trim().slice(0, 60);
+    if (requestedTitle !== undefined && (typeof requestedTitle !== "string" || requestedTitle.trim().length < 3 || requestedTitle.trim().length > 150)) {
+      return reply.status(400).send({ error: "Judul harus 3–150 karakter" });
+    }
+    const title = requestedTitle?.trim() || description.trim().slice(0, 60);
 
     const result = await db.query(
       `INSERT INTO tickets (id, ticket_number, title, description, idempotency_key, device_id, device_name, priority, lokasi)
@@ -511,11 +450,7 @@ const ticketRoutes: FastifyPluginAsync = async (fastify) => {
     }
     
     // Get attachments
-    const attachments = await db.query(
-      "SELECT * FROM attachments WHERE ticket_id = $1 ORDER BY uploaded_at",
-      [id]
-    );
-    ticket.attachments = attachments.rows;
+    ticket.attachments = await listAttachments(id, undefined, !user || user.role === "user");
     
     return ticket;
   });

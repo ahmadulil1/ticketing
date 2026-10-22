@@ -14,11 +14,12 @@ const PRIORITIES = [
 ];
 
 interface Props {
-  onSubmit: (data: { description: string; priority: string; deviceId: string; deviceName: string; idempotencyKey: string }) => Promise<{ id: string }>;
+  onSubmit: (data: { title: string; description: string; priority: string; deviceId: string; deviceName: string; idempotencyKey: string }) => Promise<{ id: string }>;
   onCancel: () => void;
 }
 
 export default function TicketForm({ onSubmit, onCancel }: Props) {
+  const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
   const [priority, setPriority] = useState("normal");
   const [files, setFiles] = useState<File[]>([]);
@@ -84,11 +85,15 @@ export default function TicketForm({ onSubmit, onCancel }: Props) {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!validate()) return;
+    if (title.trim().length < 3 || title.trim().length > 150) {
+      setErrors({ description: "Judul harus 3–150 karakter" }); return;
+    }
     setSubmitting(true);
     try {
       // Idempotency key per submit attempt
       if (!idempotencyRef.current) idempotencyRef.current = crypto.randomUUID();
       const ticket = await onSubmit({
+        title: title.trim(),
         description: description.trim(),
         priority,
         deviceId: getDeviceId(),
@@ -123,6 +128,10 @@ export default function TicketForm({ onSubmit, onCancel }: Props) {
       </header>
 
       <form onSubmit={handleSubmit} className="ticket-form">
+        <div className="form-group">
+          <label htmlFor="ticket-title">Judul singkat</label>
+          <input id="ticket-title" value={title} onChange={e => setTitle(e.target.value)} required minLength={3} maxLength={150} placeholder="Contoh: Printer tidak mencetak" />
+        </div>
         <div className="form-group">
           <label>Detail Permasalahan</label>
           <textarea

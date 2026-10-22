@@ -23,6 +23,7 @@ export function useTickets(params?: { search?: string; status?: string }) {
 
   const createTicket = useMutation({
     mutationFn: async (ticket: {
+      title?: string;
       description: string;
       priority?: string;
       deviceId?: string;
@@ -32,7 +33,7 @@ export function useTickets(params?: { search?: string; status?: string }) {
       const key = ticket.idempotencyKey || crypto.randomUUID();
       if (isAgent()) {
         const res = await api.post("/tickets", {
-          title: ticket.description.slice(0, 60),
+          title: ticket.title || ticket.description.slice(0, 60),
           description: ticket.description,
           priority: ticket.priority,
         }, { headers: { "Idempotency-Key": key } });
@@ -40,6 +41,7 @@ export function useTickets(params?: { search?: string; status?: string }) {
       }
       // Guest: device identity
       const res = await api.post("/tickets/guest", {
+        title: ticket.title,
         description: ticket.description,
         priority: ticket.priority || "normal",
         device_id: ticket.deviceId,

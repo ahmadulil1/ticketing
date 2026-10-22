@@ -17,6 +17,7 @@ import deviceRoutes from "./routes/devices.js";
 import inventoryRoutes from "./routes/inventory.js";
 import groupRoutes from "./routes/groups.js";
 import remoteRoutes from "./routes/remote.js";
+import attachmentRoutes from "./routes/attachments.js";
 
 export async function buildApp() {
   const fastify = Fastify({
@@ -79,6 +80,7 @@ export async function buildApp() {
   await fastify.register(inventoryRoutes, { prefix: "/api/inventories" });
   await fastify.register(groupRoutes, { prefix: "/api/device-groups" });
   await fastify.register(remoteRoutes, { prefix: "/api/remote" });
+  await fastify.register(attachmentRoutes, { prefix: "/api/attachments" });
 
   // WebSocket for real-time chat + remote desktop signaling
   fastify.register(async function (fastify) {

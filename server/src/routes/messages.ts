@@ -1,6 +1,7 @@
 import { FastifyPluginAsync } from "fastify";
 import { db } from "../database.js";
 import { v4 as uuidv4 } from "uuid";
+import { listAttachments, linkAttachments } from "../lib/attachments.js";
 
 // Guest akses: tiket milik device_id yang dikirim di query
 async function verifyTicketAccess(
@@ -57,7 +58,20 @@ const messageRoutes: FastifyPluginAsync = async (fastify) => {
       [ticketId, parseInt(limit), offset]
     );
 
-    return result.rows;
+    // Lampiran gambar per pesan
+    const atts = await listAttachments(ticketId);
+    const byMessage = new Map<string, any[]>();
+    for (const a of atts) {
+      if (!a.message_id) continue;
+      if (!byMessage.has(a.message_id)) byMessage.set(a.message_id, []);
+      byMessage.get(a.message_id)!.push(a);
+    }
+    const messages = result.rows.map((m: any) => ({
+      ...m,
+      attachments: byMessage.get(m.id) || [],
+    }));
+
+    return messages;
   });
   
   // Mark messages as read (read receipts)
@@ -191,17 +205,18 @@ const messageRoutes: FastifyPluginAsync = async (fastify) => {
   // Send message
   fastify.post("/ticket/:ticketId", async (request, reply) => {
     const { ticketId } = request.params as { ticketId: string };
-    const { body, clientRequestId, message_type } = request.body as {
+    const { body, clientRequestId, message_type, attachment_ids } = request.body as {
       body: string;
       clientRequestId?: string;
       message_type?: string;
+      attachment_ids?: string[];
     };
 
     // Validation
-    if (!body || body.trim().length === 0) {
+    if ((typeof body !== "string" || !body.trim()) && !(Array.isArray(attachment_ids) && attachment_ids.length)) {
       return reply.status(400).send({ error: "Pesan tidak boleh kosong" });
     }
-    if (body.length > 5000) {
+    if (typeof body !== "string" || body.length > 5000) {
       return reply.status(400).send({ error: "Pesan maksimal 5000 karakter" });
     }
 
@@ -224,13 +239,21 @@ const messageRoutes: FastifyPluginAsync = async (fastify) => {
     }
     
     // Idempotency check
+    if (attachment_ids !== undefined && (!Array.isArray(attachment_ids) || attachment_ids.length > 10 || attachment_ids.some(id => typeof id !== "string" || !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id)))) {
+      return reply.status(400).send({ error: "Lampiran tidak valid" });
+    }
     const requestId = clientRequestId || uuidv4();
     const existing = await db.query(
-      "SELECT * FROM messages WHERE client_request_id = $1",
-      [requestId]
+      "SELECT * FROM messages WHERE client_request_id = $1 AND ticket_id = $2",
+      [requestId, ticketId]
     );
     if (existing.rows[0]) {
-      return reply.status(200).send(existing.rows[0]);
+      if (existing.rows[0].message_type === "internal" && user.role === "user") return reply.status(403).send({ error: "Akses ditolak" });
+      return reply.status(200).send({ ...existing.rows[0], attachments: await listAttachments(ticketId, existing.rows[0].id) });
+    }
+    if (attachment_ids?.length) {
+      const owned = await db.query("SELECT id FROM attachments WHERE ticket_id = $1 AND message_id IS NULL AND id = ANY($2::uuid[])", [ticketId, attachment_ids]);
+      if (owned.rows.length !== new Set(attachment_ids).size) return reply.status(400).send({ error: "Lampiran bukan milik tiket ini atau sudah dikirim" });
     }
     
     // Determine sender_role
@@ -253,7 +276,15 @@ const messageRoutes: FastifyPluginAsync = async (fastify) => {
     await db.query("UPDATE tickets SET updated_at = CURRENT_TIMESTAMP WHERE id = $1", [ticketId]);
     
     const message = result.rows[0];
-    
+
+    // Lampirkan gambar yang sudah terupload ke pesan ini
+    let attachments: any[] = [];
+    if (Array.isArray(attachment_ids) && attachment_ids.length) {
+      await linkAttachments(ticketId, message.id, attachment_ids);
+      attachments = await listAttachments(ticketId, message.id);
+    }
+    const messageWithAttachments = { ...message, attachments };
+
     // Broadcast via Redis pub/sub
     const redis = fastify.redis;
     if (redis) {
@@ -261,12 +292,12 @@ const messageRoutes: FastifyPluginAsync = async (fastify) => {
         `ticket:${ticketId}`,
         JSON.stringify({
           type: "new_message",
-          message: message,
+          message: messageWithAttachments,
         })
       );
     }
     
-    return reply.status(201).send(message);
+    return reply.status(201).send(messageWithAttachments);
   });
   
   // Retry failed message
