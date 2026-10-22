@@ -196,6 +196,27 @@ const remoteRoutes: FastifyPluginAsync = async (fastify) => {
       updateVals
     );
     if (!result.rows[0]) return reply.status(404).send({ error: "Session tidak ditemukan" });
+
+    // Kabari channel remote device+agent. Tanpa ini, saat klien tekan
+    // "Hentikan" (PATCH status=ended) agent tak pernah tahu: viewer tetap
+    // terbuka dan sesi masih dianggap jalan meski DB sudah ended.
+    if (["ended", "timeout", "rejected"].includes(status)) {
+      try {
+        const { redis } = await import("../redis.js");
+        await redis.publish(
+          `remote:${result.rows[0].device_id}`,
+          JSON.stringify({
+            type: "remote_ended",
+            sessionId,
+            reason: status,
+            timestamp: new Date().toISOString(),
+          })
+        );
+      } catch (e) {
+        console.error("[remote] publish ended error:", e);
+      }
+    }
+
     return reply.send(result.rows[0]);
   });
 
