@@ -20,9 +20,16 @@ const statusColors: Record<string, string> = {
 export default function TicketDetail() {
   const { id } = useParams();
   const navigate = useNavigate();
-  // Kembali ke halaman asal (mis. detail perangkat), default ke daftar Perangkat.
+  // Kembali ke halaman asal tempat tiket ini dilihat (mirip tombol back
+  // browser). Kalau tiket dibuka langsung lewat URL, tak ada riwayat ->
+  // jatuh ke daftar Perangkat.
   const location = useLocation();
   const backTo = (location.state as { from?: string } | null)?.from || "/devices";
+  const goBack = () => {
+    const idx = (window.history.state as { idx?: number } | null)?.idx;
+    if (typeof idx === "number" && idx > 0) navigate(-1);
+    else navigate(backTo);
+  };
   const queryClient = useQueryClient();
   const [message, setMessage] = useState("");
   const [isInternal, setIsInternal] = useState(false);
@@ -200,7 +207,7 @@ export default function TicketDetail() {
   return (
     <div className="ticket-detail">
       <header>
-        <button onClick={() => navigate(backTo)} className="back-btn">
+        <button onClick={goBack} className="back-btn">
           <ArrowLeft size={20} /> Kembali
         </button>
         <div className="ticket-info">
