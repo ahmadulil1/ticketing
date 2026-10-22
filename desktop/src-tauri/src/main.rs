@@ -10,6 +10,7 @@ mod remote_stream;
 mod remote_input;
 mod remote_permissions;
 mod device_identity;
+mod logging;
 #[cfg(target_os = "windows")]
 mod remote_windows;
 
@@ -55,6 +56,15 @@ pub fn run() {
         .plugin(tauri_plugin_process::init())
         .manage(RemoteControlState::new())
         .setup(|app| {
+            // Log file (penting di Windows: tak ada console di build release)
+            logging::init(app);
+            logging::log(&format!(
+                "Ticketing Desktop {} start ({} / {})",
+                app.package_info().version,
+                std::env::consts::OS,
+                std::env::consts::ARCH
+            ));
+
             // Window pet-overlay & mini didefinisikan di tauri.conf.json
             let pet_window = app.get_webview_window("pet-overlay")
                 .ok_or("pet-overlay window not found")?;
@@ -71,8 +81,8 @@ pub fn run() {
             // Setup system tray
             system_tray::setup_system_tray(app)?;
 
-            // Setup auto start
-            auto_start::setup_autostart(app)?;
+            // Setup auto start (non-fatal: registry bisa ditolak policy)
+            auto_start::setup_autostart(app);
 
             // Commands dari frontend
             let app_handle = app.handle().clone();

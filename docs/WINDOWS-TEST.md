@@ -40,6 +40,22 @@ beberapa detik, refresh).
 Semua error sisi client **dikirim ke server** dan muncul di panel web →
 **Riwayat Remote** → kolom catatan. Jadi tak perlu buka devtools di PC target.
 
+### Log file di PC target
+
+Build release Windows tak punya console, jadi app menulis log ke file:
+
+```
+%LOCALAPPDATA%\com.ticketing.desktop\logs\ticketing-desktop.log
+```
+
+Isinya: versi app, status autostart, dan setiap error capture remote.
+Kalau remote bermasalah, minta user kirim isi file ini.
+
+> 1.1.3+: autostart **tak lagi** menggagalkan startup. Sebelumnya, kalau
+> Windows menolak tulis registry (policy ketat / profil bersama), app mati
+> total dan device tak pernah muncul. Sekarang app tetap jalan, cuma
+> autostart yang tak aktif — isi log bilang "gagal aktifkan autostart".
+
 | Pesan di Riwayat Remote | Arti & solusi |
 |---|---|
 | `Layar tampil hitam (PC terkunci atau sesi interaktif)` | PC terkunci, atau app jalan di sesi non-interaktif (RDP/service). Login di console fisik. |

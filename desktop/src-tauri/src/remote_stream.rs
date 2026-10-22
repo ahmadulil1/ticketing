@@ -37,7 +37,13 @@ pub async fn remote_capture_and_send(
         return Err(format!("Session {} tidak aktif", session_id));
     }
 
-    let (data, screen_w, screen_h) = crate::remote_windows::capture_frame()?;
+    let (data, screen_w, screen_h) = match crate::remote_windows::capture_frame() {
+        Ok(v) => v,
+        Err(e) => {
+            crate::logging::log(&format!("[remote] capture gagal: {}", e));
+            return Err(e);
+        }
+    };
     state.set_screen_size(&session_id, screen_w, screen_h);
 
     let payload = json!({
