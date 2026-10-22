@@ -207,7 +207,7 @@ export default function InstallGuide() {
             <Download size={18} /> Download macOS (.dmg)
           </a>
         ) : (
-          <a className="btn btn-primary btn-lg" href={`${BASE}/download`}>
+          <a className="btn btn-primary btn-lg" href={`${BASE}/downloads/Ticketing-setup.exe${version ? `?v=${encodeURIComponent(version)}` : ""}`} download={version ? `Ticketing_${version}_x64-setup.exe` : "Ticketing-setup.exe"}>
             <Download size={18} /> Download Windows (.exe)
           </a>
         )}
