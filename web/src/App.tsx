@@ -5,6 +5,8 @@ import { useEffect, useState } from "react";
 import api from "./lib/api";
 import { useTheme } from "./hooks/useTheme";
 import DownloadMenu from "./components/DownloadMenu";
+import NotificationDropdown from "./components/NotificationDropdown";
+import TicketChat from "./components/TicketChat";
 import InstallGuide from "./pages/InstallGuide";
 import PhotoGallery from "./pages/PhotoGallery";
 import Login from "./pages/Login";
@@ -48,6 +50,7 @@ function PrivateRoute({ children }: { children: React.ReactNode }) {
 
 function TopBar() {
   const [drawerOpen, setDrawerOpen] = useState(false);
+  const [notifOpen, setNotifOpen] = useState(false);
   const loc = useLocation();
 
   // Tutup drawer saat pindah halaman
@@ -73,9 +76,6 @@ function TopBar() {
     >
       <n.icon size={17} />
       <span>{n.label}</span>
-      {n.to === "/" && totalUnread > 0 && (
-        <span className="badge">{totalUnread > 99 ? "99+" : totalUnread}</span>
-      )}
     </NavLink>
   ));
 
@@ -96,12 +96,19 @@ function TopBar() {
         <nav>{navItems}</nav>
         <span className="spacer" />
         <div className="tb-actions">
-          {totalUnread > 0 && (
-            <span className="nav-item" style={{ cursor: "default", pointerEvents: "none" }}>
-              <Bell size={16} />
-              <span className="badge">{totalUnread > 99 ? "99+" : totalUnread}</span>
-            </span>
-          )}
+          <button
+            onClick={() => setNotifOpen((o) => !o)}
+            className="icon-btn notification-trigger"
+            aria-label="Notifikasi"
+            title="Notifikasi"
+          >
+            <Bell size={16} />
+            {totalUnread > 0 && (
+              <span className="notification-badge">
+                {totalUnread > 99 ? "99+" : totalUnread}
+              </span>
+            )}
+          </button>
           <TopBarTheme />
           <DownloadMenu />
           <button
@@ -147,6 +154,13 @@ function TopBar() {
           </div>
         </>
       )}
+      {notifOpen && (
+        <NotificationDropdown
+          open={notifOpen}
+          setOpen={setNotifOpen}
+          unread={unread || {}}
+        />
+      )}
     </>
   );
 }
@@ -167,6 +181,7 @@ function App() {
   return (
     <QueryClientProvider client={queryClient}>
       <BrowserRouter>
+        <TicketChat>
         <Routes>
           <Route path="/login" element={<Login />} />
           <Route path="/install" element={<InstallGuide />} />
@@ -180,6 +195,7 @@ function App() {
           <Route path="/agents" element={<PrivateRoute><Shell><Agents /></Shell></PrivateRoute>} />
           <Route path="/stats" element={<PrivateRoute><Shell><Stats /></Shell></PrivateRoute>} />
         </Routes>
+        </TicketChat>
       </BrowserRouter>
     </QueryClientProvider>
   );

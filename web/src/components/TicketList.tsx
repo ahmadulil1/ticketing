@@ -1,4 +1,4 @@
-import { useNavigate } from "react-router-dom";
+import { useTicketChat } from "./TicketChat";
 import dayjs from "dayjs";
 
 interface Ticket {
@@ -41,7 +41,7 @@ const PRIO_CLASS: Record<string, string> = {
 };
 
 export default function TicketList({ tickets }: Props) {
-  const navigate = useNavigate();
+  const openTicket = useTicketChat();
 
   if (tickets.length === 0) {
     return <div className="empty">Tidak ada tiket yang cocok dengan filter.</div>;
@@ -50,7 +50,7 @@ export default function TicketList({ tickets }: Props) {
   return (
     <div className="ticket-list">
       {tickets.map((ticket) => (
-        <div key={ticket.id} className="ticket-item" onClick={() => navigate("/ticket/" + ticket.id, { state: { from: "/" } })}>
+        <div key={ticket.id} className="ticket-item" role="button" tabIndex={0} onKeyDown={(event) => { if (event.key === "Enter" || event.key === " ") { event.preventDefault(); openTicket(ticket.id); } }} onClick={() => openTicket(ticket.id)}>
           <div className="ticket-info">
             <div className="ticket-header">
               <span className="ticket-number">{ticket.ticket_number}</span>

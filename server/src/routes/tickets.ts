@@ -83,8 +83,14 @@ const ticketRoutes: FastifyPluginAsync = async (fastify) => {
     }
 
     if (status) {
-      query += ` AND t.status = $${paramIndex}`;
-      params.push(status);
+      const statuses = status.split(",").map(s => s.trim()).filter(Boolean);
+      if (statuses.length > 1) {
+        query += ` AND t.status = ANY($${paramIndex}::text[])`;
+        params.push(statuses);
+      } else {
+        query += ` AND t.status = $${paramIndex}`;
+        params.push(statuses[0]);
+      }
       paramIndex++;
     }
 
@@ -225,7 +231,7 @@ const ticketRoutes: FastifyPluginAsync = async (fastify) => {
     if (requestedTitle !== undefined && (typeof requestedTitle !== "string" || requestedTitle.trim().length < 3 || requestedTitle.trim().length > 150)) {
       return reply.status(400).send({ error: "Judul harus 3–150 karakter" });
     }
-    const title = requestedTitle?.trim() || description.trim().slice(0, 60);
+    const title = Array.from(description.trim()).slice(0, 10).join("");
 
     const result = await db.query(
       `INSERT INTO tickets (id, ticket_number, title, description, idempotency_key, device_id, device_name, priority, lokasi)
@@ -364,7 +370,11 @@ const ticketRoutes: FastifyPluginAsync = async (fastify) => {
                  LEFT JOIN users a ON t.assignee_id = a.id WHERE 1=1`;
     const params: any[] = [];
     let i = 1;
-    if (status) { query += ` AND t.status = $${i++}`; params.push(status); }
+    if (status) {
+      const statuses = status.split(",").map(s => s.trim()).filter(Boolean);
+      if (statuses.length > 1) { query += ` AND t.status = ANY($${i++}::text[])`; params.push(statuses); }
+      else { query += ` AND t.status = $${i++}`; params.push(statuses[0]); }
+    }
     if (priority) { query += ` AND t.priority = $${i++}`; params.push(priority); }
     if (from) { query += ` AND t.created_at >= $${i++}`; params.push(from); }
     if (to) { query += ` AND t.created_at < ($${i++}::timestamp + interval '1 day')`; params.push(to); }

@@ -104,6 +104,7 @@ export async function initDb() {
         gpu_model VARCHAR(255),
         os_name VARCHAR(255),
         disks JSONB,
+        lokasi VARCHAR(255),
         reported_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
       );
 
@@ -139,6 +140,16 @@ export async function initDb() {
       CREATE INDEX IF NOT EXISTS idx_hw_events_inventory ON hardware_events(inventory_id, event_date DESC);
 
       ALTER TABLE tickets ADD COLUMN IF NOT EXISTS lokasi VARCHAR(255);
+      ALTER TABLE device_specs ADD COLUMN IF NOT EXISTS lokasi VARCHAR(255);
+
+      -- Backfill: group lama (per baris inventaris) jadi milik device.
+      UPDATE device_specs s SET lokasi = sub.lokasi
+      FROM (
+        SELECT DISTINCT ON (device_id) device_id, lokasi
+        FROM inventories WHERE lokasi IS NOT NULL AND lokasi <> ''
+        ORDER BY device_id, updated_at DESC
+      ) sub
+      WHERE sub.device_id = s.device_id AND s.lokasi IS NULL;
 
       -- Remote desktop sessions
       CREATE TABLE IF NOT EXISTS remote_sessions (

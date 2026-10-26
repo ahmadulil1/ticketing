@@ -6,6 +6,8 @@ import { ArrowLeft } from "lucide-react";
 import Pagination from "../components/Pagination";
 import DiskBars from "../components/DiskBars";
 import RemoteControl from "../components/RemoteControl";
+import { useTicketChat } from "../components/TicketChat";
+import DeviceHardwareHistory from "../components/DeviceHardwareHistory";
 
 const STATUS_LABEL: Record<string, string> = {
   baru: "Diterima", sedang_ditangani: "Sedang Dikerjakan", menunggu_pengguna: "Menunggu",
@@ -22,6 +24,7 @@ const REMOTE_STATUS_LABEL: Record<string, string> = {
 };
 
 export default function DeviceDetail() {
+  const openTicket = useTicketChat();
   const { deviceId } = useParams<{ deviceId: string }>();
   const navigate = useNavigate();
   const [page, setPage] = useState(1);
@@ -116,6 +119,8 @@ export default function DeviceDetail() {
         <DiskBars disks={device.spec?.disks} />
       </div>
 
+      <DeviceHardwareHistory deviceId={deviceId} events={device.hardware_events || []} />
+
       {/* Riwayat sesi remote (audit) */}
       <div className="panel">
         <div className="panel-head">
@@ -157,7 +162,7 @@ export default function DeviceDetail() {
         <div className="panel-head"><h2>Tiket Device Ini</h2></div>
         <div className="device-tickets">
           {(tickets).map((t: any) => (
-            <button key={t.id} className="ticket-row" onClick={() => navigate(`/ticket/${t.id}`, { state: { from: `/devices/${deviceId}` } })}>
+            <button key={t.id} className="ticket-row" onClick={() => openTicket(t.id)}>
               <span className="t-num">{t.ticket_number}</span>
               <span className="t-title">{t.title}</span>
               <span className="t-status">{STATUS_LABEL[t.status] || t.status}</span>

@@ -3,8 +3,8 @@ import { useRealtime } from "../hooks/useRealtime";
 import { useTheme } from "../hooks/useTheme";
 import api from "../lib/api";
 import { Search, RefreshCw, FileDown, X } from "lucide-react";
-import { useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useState, useRef } from "react";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import TicketList from "../components/TicketList";
 import Pagination from "../components/Pagination";
 import {
@@ -18,8 +18,9 @@ const STATUS_LABEL: Record<string, string> = {
 const PRIO_LABEL: Record<string, string> = { rendah: "Rendah", normal: "Sedang", tinggi: "Tinggi", urgent: "Urgent" };
 
 export default function Dashboard() {
+  const [searchParams, setSearchParams] = useSearchParams();
   const [search, setSearch] = useState("");
-  const [status, setStatus] = useState("");
+  const [status, setStatus] = useState(searchParams.get("status") || "");
   const [priority, setPriority] = useState("");
   const [deviceId, setDeviceId] = useState("");
   const [from, setFrom] = useState("");
@@ -102,10 +103,22 @@ export default function Dashboard() {
   // Reset ke halaman 1 saat filter berubah
   const resetPage = () => setPage(1);
   const onSearch = (v: string) => { setSearch(v); resetPage(); };
-  const onStatus = (v: string) => { setStatus(v); resetPage(); };
+  const onStatus = (v: string) => {
+    setStatus(v);
+    resetPage();
+    // Sinkron ke URL agar halaman statistik bisa membuka dashboard terfilter.
+    setSearchParams(v ? { status: v } : {}, { replace: true });
+  };
   const onPriority = (v: string) => { setPriority(v); resetPage(); };
   const onFrom = (v: string) => { setFrom(v); resetPage(); };
   const onTo = (v: string) => { setTo(v); resetPage(); };
+
+  // Klik kartu ringkasan -> filter status + scroll ke daftar tiket
+  const ticketListRef = useRef<HTMLDivElement>(null);
+  const applyStatus = (value: string) => {
+    onStatus(value);
+    ticketListRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+  };
 
   const total = tickets?.length ? parseInt(tickets[0].total_count) || 0 : 0;
   const totalPages = Math.max(1, Math.ceil(total / PER_PAGE));
@@ -138,22 +151,22 @@ export default function Dashboard() {
       </div>
 
       <div className="stat-cards">
-        <div className="stat-card baru">
+        <button className="stat-card baru stat-card-action" onClick={() => applyStatus("baru")} title="Filter tiket Diterima">
           <span className="count">{counts.baru}</span>
           <span className="label">Diterima</span>
-        </div>
-        <div className="stat-card proses">
+        </button>
+        <button className="stat-card proses stat-card-action" onClick={() => applyStatus("sedang_ditangani")} title="Filter tiket Sedang Dikerjakan">
           <span className="count">{counts.sedang_ditangani}</span>
           <span className="label">Sedang Dikerjakan</span>
-        </div>
-        <div className="stat-card tunggu">
+        </button>
+        <button className="stat-card tunggu stat-card-action" onClick={() => applyStatus("menunggu_pengguna")} title="Filter tiket Menunggu">
           <span className="count">{counts.menunggu}</span>
           <span className="label">Menunggu</span>
-        </div>
-        <div className="stat-card selesai">
+        </button>
+        <button className="stat-card selesai stat-card-action" onClick={() => applyStatus("selesai,ditutup")} title="Filter tiket Selesai">
           <span className="count">{counts.selesai}</span>
           <span className="label">Selesai</span>
-        </div>
+        </button>
       </div>
 
       <div className="chart-card">
@@ -205,7 +218,7 @@ export default function Dashboard() {
         </div>
       </div>
 
-      <div className="panel">
+      <div className="panel" ref={ticketListRef}>
         <div className="panel-head">
           <h2>Tiket</h2>
           {hasFilter && (
@@ -226,6 +239,7 @@ export default function Dashboard() {
           </div>
           <select value={status} onChange={(e) => onStatus(e.target.value)}>
             <option value="">Semua Status</option>
+            {status.includes(",") && <option value={status}>Selesai / Ditutup</option>}
             {Object.entries(STATUS_LABEL).map(([k, v]) => (
               <option key={k} value={k}>{v}</option>
             ))}

@@ -4,6 +4,8 @@ import { Link } from "react-router-dom";
 import { X, Pencil, Package, Monitor, Save } from "lucide-react";
 import api from "../lib/api";
 import DiskBars from "./DiskBars";
+import HardwareHistory from "./HardwareHistory";
+import { useTicketChat } from "./TicketChat";
 
 /**
  * Panel detail aset: dibuka dari kartu di halaman Perangkat.
@@ -23,6 +25,7 @@ export default function AssetPanel({
   onClose: () => void;
   onSaved: () => void;
 }) {
+  const openTicket = useTicketChat();
   const client = useQueryClient();
   const [editing, setEditing] = useState(false);
   const [form, setForm] = useState({ no_inventaris: "", lokasi: "", catatan: "" });
@@ -41,22 +44,34 @@ export default function AssetPanel({
     queryKey: ["device-groups"],
     queryFn: async () => (await api.get("/device-groups")).data,
   });
+  // Semua nomor inventaris milik device ini (satu device bisa punya >1 baris).
+  const deviceInventories = useQuery({
+    queryKey: ["device-inventories", deviceId],
+    queryFn: async () => (await api.get(`/inventories?device_id=${encodeURIComponent(deviceId || "")}`)).data,
+    enabled: !!deviceId,
+  });
 
   useEffect(() => {
     if (asset.data) {
       setForm({
         no_inventaris: asset.data.no_inventaris || "",
-        lokasi: asset.data.lokasi || "",
+        lokasi: device.data?.lokasi ?? asset.data.lokasi ?? "",
         catatan: asset.data.catatan || "",
       });
     }
-  }, [asset.data?.id]);
+  }, [asset.data?.id, device.data?.lokasi]);
 
   const save = useMutation({
-    mutationFn: async () => (await api.patch(`/inventories/${inventoryId}`, form)).data,
+    mutationFn: async () => {
+      // Group milik device: patch device dulu, lalu simpan nomor/catatan inventaris.
+      if (deviceId) await api.patch(`/devices/${encodeURIComponent(deviceId)}/group`, { lokasi: form.lokasi });
+      return (await api.patch(`/inventories/${inventoryId}`, { no_inventaris: form.no_inventaris, catatan: form.catatan })).data;
+    },
     onSuccess: () => {
       client.invalidateQueries({ queryKey: ["asset", inventoryId] });
       client.invalidateQueries({ queryKey: ["inventories"] });
+      client.invalidateQueries({ queryKey: ["device-inventories", deviceId] });
+      client.invalidateQueries({ queryKey: ["devices"] });
       setEditing(false);
       onSaved();
     },
@@ -153,7 +168,7 @@ export default function AssetPanel({
                 </div>
                 <div>
                   <dt>Group / lokasi</dt>
-                  <dd>{asset.data.lokasi || "Belum dikelompokkan"}</dd>
+                  <dd>{device.data?.lokasi ?? asset.data.lokasi ?? "Belum dikelompokkan"}</dd>
                 </div>
                 <div>
                   <dt>Catatan</dt>
@@ -168,6 +183,20 @@ export default function AssetPanel({
           </section>
         )}
 
+        {inventoryId && <HardwareHistory key={inventoryId} inventoryId={inventoryId} />}
+        {deviceId && (deviceInventories.data || []).length > 1 && (
+          <section className="asset-section">
+            <div className="asset-section-head"><h3>Nomor inventaris</h3></div>
+            <ul className="asset-inv-list">
+              {(deviceInventories.data || []).map((inv: any) => (
+                <li key={inv.id}>
+                  <span>{inv.no_inventaris}</span>
+                  <span className="muted">{inv.lokasi || "Belum dikelompokkan"}</span>
+                </li>
+              ))}
+            </ul>
+          </section>
+        )}
         {deviceId && (
           <section className="asset-section">
             <div className="asset-section-head">
@@ -219,10 +248,12 @@ export default function AssetPanel({
                   <p className="muted">Belum ada tiket untuk perangkat ini.</p>
                 ) : (
                   <ul className="asset-tickets">
-                    {tickets.slice(0, 6).map((t: any) => (
+                    {tickets.map((t: any) => (
                       <li key={t.id}>
-                        <Link to={`/ticket/${t.id}`} state={{ from: "/devices" }}>{t.ticket_number}</Link>
-                        <span className="muted"> {t.title}</span>
+                        <Link to={`/ticket/${t.id}`} onClick={(event) => { if (event.ctrlKey || event.metaKey || event.shiftKey || event.altKey) return; event.preventDefault(); onClose(); openTicket(t.id); }}><strong>{t.ticket_number}</strong>
+                        <span className="muted"> {Array.from(String(t.title || "")).slice(0, 10).join("")}</span>
+                        <span className="badge-active">{String(t.status || "").replaceAll("_", " ")}</span>
+                        </Link>
                       </li>
                     ))}
                   </ul>

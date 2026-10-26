@@ -6,6 +6,7 @@ import {
 } from "recharts";
 import { Clock, CheckCircle, MonitorSmartphone, Inbox } from "lucide-react";
 import { useTheme } from "../hooks/useTheme";
+import { useNavigate } from "react-router-dom";
 
 const STATUS_LABEL: Record<string, string> = {
   baru: "Diterima", sedang_ditangani: "Sedang Dikerjakan", menunggu_pengguna: "Menunggu",
@@ -21,6 +22,7 @@ const PRIO_COLORS: Record<string, string> = {
 };
 
 export default function Stats() {
+  const navigate = useNavigate();
   const { data: stats } = useQuery({
     queryKey: ["stats"],
     queryFn: async () => {
@@ -49,6 +51,10 @@ export default function Stats() {
     value: parseInt(p.count),
     key: p.priority,
   }));
+  const statusCount = (key: string) => {
+    const found = (stats?.by_status || []).find((s: any) => s.status === key);
+    return found ? parseInt(found.count) || 0 : 0;
+  };
 
   const fmtDuration = (secs: any) => {
     const n = Number(secs);
@@ -66,6 +72,25 @@ export default function Stats() {
     <div className="page">
       <div className="page-head">
         <h1>Statistik</h1>
+      </div>
+
+      <div className="stat-cards">
+        <button className="stat-card baru stat-card-action" onClick={() => navigate("/?status=baru")} title="Filter tiket Diterima">
+          <span className="count">{statusCount("baru")}</span>
+          <span className="label">Diterima</span>
+        </button>
+        <button className="stat-card proses stat-card-action" onClick={() => navigate("/?status=sedang_ditangani")} title="Filter tiket Sedang Dikerjakan">
+          <span className="count">{statusCount("sedang_ditangani")}</span>
+          <span className="label">Sedang Dikerjakan</span>
+        </button>
+        <button className="stat-card tunggu stat-card-action" onClick={() => navigate("/?status=menunggu_pengguna")} title="Filter tiket Menunggu">
+          <span className="count">{statusCount("menunggu_pengguna")}</span>
+          <span className="label">Menunggu</span>
+        </button>
+        <button className="stat-card selesai stat-card-action" onClick={() => navigate("/?status=selesai,ditutup")} title="Filter tiket Selesai">
+          <span className="count">{statusCount("selesai") + statusCount("ditutup")}</span>
+          <span className="label">Selesai</span>
+        </button>
       </div>
 
       <div className="stat-cards">

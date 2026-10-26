@@ -86,22 +86,55 @@ const deviceRoutes: FastifyPluginAsync = async (fastify) => {
     }
 
     const result = await db.query(
-      `SELECT
-         COALESCE(s.device_id, t.device_id) AS device_id,
-         COALESCE(MAX(t.device_name), s.hostname, COALESCE(s.device_id, t.device_id)) AS device_name,
-         MAX(s.os_name) AS os_name,
-         COUNT(t.id) AS ticket_count,
-         COUNT(t.id) FILTER (WHERE t.status NOT IN ('selesai', 'ditutup')) AS active_count,
-         COUNT(t.id) FILTER (WHERE t.status = 'baru') AS baru_count,
-         COALESCE(MAX(t.updated_at), s.reported_at) AS last_activity
-       FROM device_specs s
-       FULL OUTER JOIN tickets t ON t.device_id = s.device_id
-       WHERE COALESCE(s.device_id, t.device_id) IS NOT NULL
-       GROUP BY COALESCE(s.device_id, t.device_id), s.hostname, s.reported_at
-       ORDER BY COALESCE(MAX(t.updated_at), s.reported_at) DESC`
+      `WITH d AS (
+         SELECT
+           COALESCE(s.device_id, t.device_id) AS device_id,
+           COALESCE(MAX(t.device_name), s.hostname, COALESCE(s.device_id, t.device_id)) AS device_name,
+           MAX(s.os_name) AS os_name,
+           MAX(s.lokasi) AS lokasi,
+           COUNT(t.id) AS ticket_count,
+           COUNT(t.id) FILTER (WHERE t.status NOT IN ('selesai', 'ditutup')) AS active_count,
+           COUNT(t.id) FILTER (WHERE t.status = 'baru') AS baru_count,
+           COALESCE(MAX(t.updated_at), s.reported_at) AS last_activity
+         FROM device_specs s
+         FULL OUTER JOIN tickets t ON t.device_id = s.device_id
+         WHERE COALESCE(s.device_id, t.device_id) IS NOT NULL
+         GROUP BY COALESCE(s.device_id, t.device_id), s.hostname, s.reported_at
+       )
+       SELECT d.*,
+         COALESCE(d.lokasi, (
+           SELECT i.lokasi FROM inventories i
+           WHERE i.device_id = d.device_id
+           ORDER BY i.updated_at DESC LIMIT 1
+         )) AS lokasi
+       FROM d
+       ORDER BY d.last_activity DESC`
     );
 
     return result.rows;
+  });
+
+  // Pindah group perangkat. Group milik device (bukan per baris inventaris),
+  // jadi semua baris inventaris device ini ikut agar tidak terpecah.
+  fastify.patch("/:deviceId/group", async (request, reply) => {
+    try { await request.jwtVerify(); }
+    catch { return reply.status(401).send({ error: "Unauthorized" }); }
+    const { role } = request.user as { role: string };
+    if (role !== "admin" && role !== "agent") return reply.status(403).send({ error: "Akses ditolak" });
+
+    const { deviceId } = request.params as { deviceId: string };
+    const { lokasi } = request.body as { lokasi?: string };
+    const group = (lokasi || "").trim() || null;
+
+    // Device dari tiket belum tentu punya spec; upsert agar group bisa disimpan.
+    await db.query(
+      `INSERT INTO device_specs (device_id, lokasi) VALUES ($1, $2)
+       ON CONFLICT (device_id) DO UPDATE SET lokasi = EXCLUDED.lokasi`,
+      [deviceId, group]
+    );
+    // Sinkronkan baris inventaris agar tampilan lama ikut konsisten.
+    await db.query("UPDATE inventories SET lokasi = $1, updated_at = CURRENT_TIMESTAMP WHERE device_id = $2", [group, deviceId]);
+    return { device_id: deviceId, lokasi: group };
   });
 
   // Detail device + semua tiketnya
@@ -123,6 +156,7 @@ const deviceRoutes: FastifyPluginAsync = async (fastify) => {
       `SELECT
          COALESCE(s.device_id, $1) AS device_id,
          COALESCE(MAX(t.device_name), s.hostname, $1) AS device_name,
+         MAX(s.lokasi) AS lokasi,
          COUNT(t.id) AS ticket_count,
          COUNT(t.id) FILTER (WHERE t.status NOT IN ('selesai', 'ditutup')) AS active_count,
          COALESCE(MIN(t.created_at), s.reported_at) AS first_seen,
@@ -144,6 +178,18 @@ const deviceRoutes: FastifyPluginAsync = async (fastify) => {
       [deviceId]
     );
 
+    // Riwayat penggantian komponen: gabungan dari semua baris inventaris device ini.
+    const hardwareEvents = await db.query(
+      `SELECT e.id, e.event_date, e.jenis, e.komponen, e.old_detail, e.new_detail,
+              e.catatan, e.created_at, i.no_inventaris, u.username AS created_by_name
+       FROM hardware_events e
+       JOIN inventories i ON i.id = e.inventory_id
+       LEFT JOIN users u ON u.id = e.created_by
+       WHERE i.device_id = $1
+       ORDER BY e.event_date DESC, e.created_at DESC`,
+      [deviceId]
+    );
+
     const tickets = await db.query(
       `SELECT t.*, a.username AS assignee_name
        FROM tickets t
@@ -153,7 +199,38 @@ const deviceRoutes: FastifyPluginAsync = async (fastify) => {
       [deviceId]
     );
 
-    return { ...info.rows[0], tickets: tickets.rows, spec: spec.rows[0] || null, inventory: inv.rows[0] || null };
+    return {
+      ...info.rows[0],
+      tickets: tickets.rows,
+      spec: spec.rows[0] || null,
+      inventory: inv.rows[0] || null,
+      hardware_events: hardwareEvents.rows,
+    };
+  });
+
+  // Tambah riwayat penggantian komponen untuk device (pakai baris inventaris pertama).
+  fastify.post("/:deviceId/hardware-events", async (request, reply) => {
+    try { await request.jwtVerify(); }
+    catch { return reply.status(401).send({ error: "Unauthorized" }); }
+    const { role, id: userId } = request.user as { role: string; id: string };
+    if (role !== "admin" && role !== "agent") return reply.status(403).send({ error: "Akses ditolak" });
+
+    const { deviceId } = request.params as { deviceId: string };
+    const inv = await db.query("SELECT id FROM inventories WHERE device_id = $1 ORDER BY created_at LIMIT 1", [deviceId]);
+    if (!inv.rows[0]) return reply.status(404).send({ error: "Device belum punya aset terdaftar" });
+
+    const { event_date, jenis = "ganti", komponen, old_detail, new_detail, catatan } = (request.body || {}) as any;
+    if (typeof komponen !== "string" || !komponen.trim() || komponen.trim().length > 100) return reply.status(400).send({ error: "Komponen wajib diisi, maksimal 100 karakter" });
+    if (typeof event_date !== "string" || !/^\d{4}-\d{2}-\d{2}$/.test(event_date) || !Number.isFinite(Date.parse(event_date)) || new Date(event_date).toISOString().slice(0, 10) !== event_date) return reply.status(400).send({ error: "Tanggal tidak valid" });
+    if (!["ganti", "upgrade", "perbaikan"].includes(jenis)) return reply.status(400).send({ error: "Jenis riwayat tidak valid" });
+    if ([old_detail, new_detail, catatan].some(value => value !== undefined && (typeof value !== "string" || value.length > 2000))) return reply.status(400).send({ error: "Detail maksimal 2000 karakter" });
+
+    await db.query(
+      `INSERT INTO hardware_events (inventory_id, event_date, jenis, komponen, old_detail, new_detail, catatan, created_by)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`,
+      [inv.rows[0].id, event_date, jenis || "ganti", String(komponen).trim(), old_detail || null, new_detail || null, catatan || null, userId]
+    );
+    return { success: true };
   });
 };
 

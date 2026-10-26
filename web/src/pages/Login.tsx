@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import api from "../lib/api";
 
@@ -7,10 +7,20 @@ export default function Login() {
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
+  const [retryAt, setRetryAt] = useState(0);
+  const [remaining, setRemaining] = useState(0);
+  const warningRef = useRef<HTMLDialogElement>(null);
+  useEffect(() => {
+    const update = () => setRemaining(Math.max(0, Math.ceil((retryAt - Date.now()) / 1000)));
+    update();
+    const timer = window.setInterval(update, 1000);
+    return () => window.clearInterval(timer);
+  }, [retryAt]);
   const navigate = useNavigate();
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (loading || Date.now() < retryAt) return;
     setError("");
     setLoading(true);
 
@@ -21,7 +31,14 @@ export default function Login() {
       localStorage.setItem("user", JSON.stringify(res.data.user));
       navigate("/");
     } catch (err: any) {
-      setError(err.response?.data?.error || "Login gagal");
+      if (err.response?.status === 429) {
+        const header = err.response.headers?.["retry-after"];
+        const seconds = Number(header);
+        const until = header && Number.isFinite(seconds) ? Date.now() + seconds * 1000 : Date.parse(header || "");
+        setRetryAt(Number.isFinite(until) && until > Date.now() ? until : Date.now() + 60000);
+        setError("Terlalu banyak percobaan login. Tunggu sebelum mencoba kembali.");
+        warningRef.current?.showModal();
+      } else setError(err.response?.data?.error || "Login gagal");
     } finally {
       setLoading(false);
     }
@@ -49,11 +66,16 @@ export default function Login() {
             required
           />
           {error && <div className="error">{error}</div>}
-          <button type="submit" disabled={loading}>
-            {loading ? "Masuk..." : "Masuk"}
+          <button type="submit" disabled={loading || remaining > 0}>
+            {remaining > 0 ? `Coba lagi ${remaining} detik` : loading ? "Masuk..." : "Masuk"}
           </button>
         </form>
       </div>
+      <dialog ref={warningRef} className="login-warning" aria-labelledby="login-warning-title">
+        <h2 id="login-warning-title">Terlalu banyak percobaan</h2>
+        <p>{error}</p><p role="status">Coba lagi dalam {remaining} detik. Jika masih dibatasi, tunggu sesuai ketentuan SIGAP.</p>
+        <button className="btn btn-primary" onClick={() => warningRef.current?.close()}>Mengerti</button>
+      </dialog>
     </div>
   );
 }

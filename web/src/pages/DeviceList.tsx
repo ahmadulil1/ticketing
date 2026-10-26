@@ -26,6 +26,8 @@ export default function DeviceList() {
   const refresh = () => {
     client.invalidateQueries({ queryKey: ["inventories"] });
     client.invalidateQueries({ queryKey: ["device-groups"] });
+    client.invalidateQueries({ queryKey: ["asset"] });
+    client.invalidateQueries({ queryKey: ["devices"] });
   };
   const action = useMutation({
     mutationFn: async ({ method, url, data }: { method: "post" | "patch" | "delete"; url: string; data?: any }) => api.request({ method, url, data }),
@@ -50,14 +52,102 @@ export default function DeviceList() {
 
   const totalPages = Math.max(1, Math.ceil(filtered.length / 12));
   const current = Math.min(page, totalPages);
-  const pageRows = filtered.slice((current - 1) * 12, current * 12);
+
+  // Kelompokkan baris per group (lokasi). Tanpa group -> "Belum dikelompokkan".
+  const grouped = useMemo(() => {
+    const map = new Map<string, any[]>();
+    for (const row of filtered) {
+      const key = row.lokasi || "__none";
+      if (!map.has(key)) map.set(key, []);
+      map.get(key)!.push(row);
+    }
+    return [...map.entries()].sort((a, b) => {
+      if (a[0] === "__none") return 1;
+      if (b[0] === "__none") return -1;
+      return a[0].localeCompare(b[0]);
+    });
+  }, [filtered]);
+
+  // Paginasi applied pada urutan group (supaya tiap group punya judul).
+  const pagedGroups = useMemo(() => {
+    const out: Array<{ key: string; label: string; rows: any[]; total: number }> = [];
+    let left = (current - 1) * 12;
+    for (const [key, rows] of grouped) {
+      if (left >= rows.length) { left -= rows.length; continue; }
+      const take = rows.slice(left, left + 12);
+      left = 0;
+      out.push({ key, label: key === "__none" ? "Belum dikelompokkan" : key, rows: take, total: rows.length });
+    }
+    return out;
+  }, [grouped, current]);
+
+  const renderCard = (row: any) => {
+    const label = row.device_name || row.hostname || "Aset tanpa device";
+    const open = () => setSelected({ inventoryId: row.inventoryId || null, deviceId: row.device_id || null });
+    return (
+      <article key={row.rowId} className="device-card-clean" onClick={open}>
+        <header className="device-card-clean-head">
+          <span className="device-card-clean-icon">{row.device_id ? <Monitor size={15} /> : <Package size={15} />}</span>
+          <div className="device-card-clean-title">
+            {/* Tombol sungguhan, bukan strong: kartu tak boleh role=button
+                karena memuat tombol lain (nested interactive = a11y rusak). */}
+            <button className="device-card-clean-open" onClick={e => { e.stopPropagation(); open(); }}>{label}</button>
+            <span>{row.os_name || "OS belum dilaporkan"}</span>
+          </div>
+          {row.lokasi && <span className="device-card-clean-lokasi">{row.lokasi}</span>}
+        </header>
+        <div className="device-card-clean-no">
+          <span className="muted">No. Inventaris</span>
+          <span className="device-card-clean-number">{row.no_inventaris || "Belum terdaftar"}{(row.inventories || []).length > 1 ? ` +${row.inventories.length - 1} lainnya` : ""}</span>
+          {row.inventoryId ? (
+            <button className="icon-btn" aria-label={`Edit ${row.no_inventaris || "aset"}`} title="Edit nomor inventaris"
+              onClick={e => { e.stopPropagation(); open(); }}><Pencil size={14} /></button>
+          ) : row.device_id ? (
+            <button className="icon-btn" aria-label="Daftarkan aset" title="Daftarkan aset untuk perangkat ini"
+              onClick={e => { e.stopPropagation(); setForm(f => ({ ...f, device_id: row.device_id })); setCreateOpen(true); }}><Plus size={14} /></button>
+          ) : null}
+        </div>
+        <label className="device-card-clean-no" onClick={e => e.stopPropagation()}>
+          <span className="muted">Group</span>
+          <select
+            aria-label={`Group perangkat ${label}`}
+            value={row.lokasi || ""}
+            disabled={action.isPending || groups.isLoading || groups.isError || !row.device_id}
+            onChange={e => {
+              const lokasi = e.target.value;
+              if (row.device_id) {
+                action.mutate({ method: "patch", url: `/devices/${encodeURIComponent(row.device_id)}/group`, data: { lokasi } });
+              } else {
+                setForm(f => ({ ...f, device_id: row.device_id || "", lokasi }));
+                setCreateOpen(true);
+              }
+            }}
+          >
+            <option value="">Belum dikelompokkan</option>
+            {locations.map(name => <option key={name} value={name}>{name}</option>)}
+          </select>
+        </label>
+        <footer className="device-card-clean-foot">
+          {row.active_count > 0 ? (
+            <span className="badge-active">{row.active_count} tiket aktif</span>
+          ) : (
+            <span className="badge-done">Tidak ada tiket aktif</span>
+          )}
+          <div className="device-actions" onClick={e => e.stopPropagation()}>
+            {row.device_id && <Link className="btn btn-tinted btn-sm btn-action" to={`/devices/${row.device_id}`}>Detail</Link>}
+            {row.device_id && <RemoteControl deviceId={row.device_id} deviceName={label} osName={row.os_name} />}
+          </div>
+        </footer>
+      </article>
+    );
+  };
 
   return (
     <div className="page device-page">
       <div className="page-head">
         <h1>Perangkat</h1>
         <span className="muted">
-          {rows.length} baris · {new Set(rows.map((r: any) => r.device_id).filter(Boolean)).size} perangkat
+          {rows.length} perangkat
         </span>
         <button className="btn btn-primary btn-sm" onClick={() => setCreateOpen(v => !v)}>
           <Plus size={15} /> Tambah aset
@@ -70,6 +160,7 @@ export default function DeviceList() {
       {action.isError && (
         <p role="alert">{(action.error as any)?.response?.data?.error || "Gagal menyimpan perubahan"}</p>
       )}
+      {groups.isError && <p role="alert">Gagal memuat group. Muat ulang halaman untuk mencoba lagi.</p>}
 
       {createOpen && (
         <form
@@ -132,47 +223,13 @@ export default function DeviceList() {
       ) : (
         <div className="device-layout">
           <div className="device-cards">
-            {pageRows.map((row: any) => {
-              const label = row.device_name || row.hostname || "Aset tanpa device";
-              const open = () => setSelected({ inventoryId: row.inventoryId || null, deviceId: row.device_id || null });
-              return (
-                <article key={row.rowId} className="device-card-clean" onClick={open}>
-                  <header className="device-card-clean-head">
-                    <span className="device-card-clean-icon">{row.device_id ? <Monitor size={15} /> : <Package size={15} />}</span>
-                    <div className="device-card-clean-title">
-                      {/* Tombol sungguhan, bukan strong: kartu tak boleh role=button
-                          karena memuat tombol lain (nested interactive = a11y rusak). */}
-                      <button className="device-card-clean-open" onClick={e => { e.stopPropagation(); open(); }}>{label}</button>
-                      <span>{row.os_name || "OS belum dilaporkan"}</span>
-                    </div>
-                    {row.lokasi && <span className="device-card-clean-lokasi">{row.lokasi}</span>}
-                  </header>
-                  <div className="device-card-clean-no">
-                    <span className="muted">No. Inventaris</span>
-                    <span className="device-card-clean-number">{row.no_inventaris || "Belum terdaftar"}</span>
-                    {row.inventoryId ? (
-                      <button className="icon-btn" aria-label={`Edit ${row.no_inventaris || "aset"}`} title="Edit nomor inventaris"
-                        onClick={e => { e.stopPropagation(); open(); }}><Pencil size={14} /></button>
-                    ) : row.device_id ? (
-                      <button className="icon-btn" aria-label="Daftarkan aset" title="Daftarkan aset untuk perangkat ini"
-                        onClick={e => { e.stopPropagation(); setForm(f => ({ ...f, device_id: row.device_id })); setCreateOpen(true); }}><Plus size={14} /></button>
-                    ) : null}
-                  </div>
-                  <footer className="device-card-clean-foot">
-                    {row.active_count > 0 ? (
-                      <span className="badge-active">{row.active_count} tiket aktif</span>
-                    ) : (
-                      <span className="badge-done">Tidak ada tiket aktif</span>
-                    )}
-                    <div className="device-actions" onClick={e => e.stopPropagation()}>
-                      {row.device_id && <Link className="btn btn-tinted btn-sm btn-action" to={`/devices/${row.device_id}`}>Detail</Link>}
-                      {row.device_id && <RemoteControl deviceId={row.device_id} deviceName={label} osName={row.os_name} />}
-                    </div>
-                  </footer>
-                </article>
-              );
-            })}
-            {!pageRows.length && <div className="empty">Tidak ada perangkat yang cocok.</div>}
+            {pagedGroups.map(group => (
+              <section className="device-group" key={group.key}>
+                <h2 className="device-group-title"><span className="device-group-name">{group.label}</span><span className="muted">{group.total} perangkat</span></h2>
+                <div className="device-group-cards">{group.rows.map(renderCard)}</div>
+              </section>
+            ))}
+            {!pagedGroups.length && <div className="empty">Tidak ada perangkat yang cocok.</div>}
           </div>
 
           {selected && (
@@ -181,7 +238,7 @@ export default function DeviceList() {
         </div>
       )}
 
-      <Pagination page={current} totalPages={totalPages} total={filtered.length} onChange={setPage} label="baris" />
+      <Pagination page={current} totalPages={totalPages} total={filtered.length} onChange={setPage} label="perangkat" />
 
       {groupsOpen && (
         <div className="device-group-overlay" onClick={() => setGroupsOpen(false)}>
@@ -199,7 +256,7 @@ export default function DeviceList() {
               const count = rows.filter((r: any) => r.lokasi === g.nama).length;
               return (
                 <div className="device-group-row" key={g.id}>
-                  <span>{g.nama} <small>({count} aset)</small></span>
+                  <span>{g.nama} <small>({count} perangkat)</small></span>
                   <button className="btn btn-outline" disabled={action.isPending || count > 0} title={count ? "Pindahkan aset ke group lain sebelum menghapus" : "Hapus group"}
                     onClick={() => { if (confirm(`Hapus group ${g.nama}?`)) action.mutate({ method: "delete", url: `/device-groups/${g.id}` }); }}>Hapus</button>
                 </div>

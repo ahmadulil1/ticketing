@@ -90,6 +90,9 @@ const messageRoutes: FastifyPluginAsync = async (fastify) => {
        WHERE ticket_id = $1 AND sender_role = $2 AND read_at IS NULL ${hideInternal}`,
       [ticketId, otherRole]
     );
+    if (user.role === "admin" || user.role === "agent") {
+      await db.query("UPDATE messages SET read_at = CURRENT_TIMESTAMP WHERE ticket_id = $1 AND sender_role = 'system' AND body = 'Tiket dibuat' AND read_at IS NULL", [ticketId]);
+    }
 
     // Broadcast read receipt ke lawan biar badge unread turun instan
     const redis = (fastify as any).redis;
@@ -101,6 +104,26 @@ const messageRoutes: FastifyPluginAsync = async (fastify) => {
     }
 
     return { success: true };
+  });
+
+  // Riwayat tetap ada setelah pesan dibaca; khusus admin/agent.
+  fastify.get("/notifications", async (request, reply) => {
+    try { await request.jwtVerify(); }
+    catch { return reply.status(401).send({ error: "Unauthorized" }); }
+    const { role } = request.user as { role: string };
+    if (role !== "admin" && role !== "agent") return reply.status(403).send({ error: "Akses ditolak" });
+    const result = await db.query(
+      `SELECT t.id AS ticket_id, t.ticket_number, t.title, t.status,
+              COUNT(*) FILTER (WHERE m.read_at IS NULL)::int AS unread,
+              MAX(m.created_at) AS last_message_at,
+              CASE WHEN COUNT(*) FILTER (WHERE m.sender_role = 'user') > 0 THEN 'message' ELSE 'ticket' END AS kind
+       FROM messages m JOIN tickets t ON t.id = m.ticket_id
+       WHERE (m.sender_role = 'user' AND m.message_type <> 'internal')
+          OR (m.sender_role = 'system' AND m.body = 'Tiket dibuat')
+       GROUP BY t.id
+       ORDER BY MAX(m.created_at) DESC LIMIT 50`
+    );
+    return result.rows;
   });
 
   // Jumlah pesan belum dibaca per tiket (untuk badge lonceng / titik merah)
@@ -123,7 +146,7 @@ const messageRoutes: FastifyPluginAsync = async (fastify) => {
       `SELECT m.ticket_id, COUNT(*)::int AS unread
        FROM messages m
        WHERE m.read_at IS NULL
-         AND m.sender_role = $1
+          AND (m.sender_role = $1 ${!deviceId && (role === "admin" || role === "agent") ? "OR (m.sender_role = 'system' AND m.body = 'Tiket dibuat')" : ""})
          ${hideInternal}
          ${deviceId ? "AND m.ticket_id IN (SELECT id FROM tickets WHERE device_id = $2)" : ""}
        GROUP BY m.ticket_id`,

@@ -5,6 +5,7 @@ import { useState, useEffect, useRef } from "react";
 import Pagination from "../components/Pagination";
 import Gallery, { GalleryLabel } from "../components/Gallery";
 import api from "../lib/api";
+import RemoteControl from "../components/RemoteControl";
 import { useTheme } from "../hooks/useTheme";
 import dayjs from "dayjs";
 import { ArrowLeft, Send, Sun, Moon, Paperclip, X, Loader2 } from "lucide-react";
@@ -17,8 +18,9 @@ const statusColors: Record<string, string> = {
   ditutup: "status-tutup",
 };
 
-export default function TicketDetail() {
-  const { id } = useParams();
+export default function TicketDetail({ ticketId, embedded = false, readEnabled = true }: { ticketId?: string; embedded?: boolean; readEnabled?: boolean }) {
+  const params = useParams();
+  const id = ticketId || params.id;
   const navigate = useNavigate();
   // Kembali ke halaman asal tempat tiket ini dilihat (mirip tombol back
   // browser). Kalau tiket dibuka langsung lewat URL, tak ada riwayat ->
@@ -87,9 +89,9 @@ export default function TicketDetail() {
   });
 
   useEffect(() => {
-    if (messages && messages.length > 0) markRead.mutate();
+    if (readEnabled && messages && messages.length > 0) markRead.mutate();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [messages?.length]);
+  }, [messages?.length, readEnabled]);
 
   const { data: agents } = useQuery({
     queryKey: ["users"],
@@ -168,9 +170,9 @@ export default function TicketDetail() {
 
   // Judul tab: bedakan tiap halaman (tiket, device, inventaris, ...)
   useEffect(() => {
-    if (!ticket) return;
+    if (!ticket || embedded) return;
     document.title = `${ticket.ticket_number} · ${ticket.title}`.slice(0, 90) + " — Ticketing";
-  }, [ticket]);
+  }, [ticket, embedded]);
 
   // Pratinjau gambar terpilih
   useEffect(() => {
@@ -207,13 +209,16 @@ export default function TicketDetail() {
   return (
     <div className="ticket-detail">
       <header>
-        <button onClick={goBack} className="back-btn">
+        {!embedded && <button onClick={goBack} className="back-btn">
           <ArrowLeft size={20} /> Kembali
-        </button>
+        </button>}
         <div className="ticket-info">
           <h2>{ticket.ticket_number}</h2>
           <span className={"status " + (statusColors[ticket.status] || "")}>{ticket.status.replace(/_/g, " ")}</span>
         </div>
+        {(user.role === "admin" || user.role === "agent") && (ticket.device_id
+          ? <RemoteControl deviceId={ticket.device_id} deviceName={ticket.device_name || ticket.device_id} label="Remote" />
+          : <button className="btn btn-outline" disabled title="Tiket tidak terkait perangkat">Remote</button>)}
         <button
           className={"icon-btn" + (theme === "dark" ? " active" : "")}
           onClick={toggle}

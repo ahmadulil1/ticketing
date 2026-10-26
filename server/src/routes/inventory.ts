@@ -25,12 +25,15 @@ const inventoryRoutes: FastifyPluginAsync = async (fastify) => {
   fastify.get("/", async (request, reply) => {
     const staff: any = await requireStaff(request, reply);
     if (!staff) return;
-    const { q } = request.query as { q?: string };
+    const { q, device_id } = request.query as { q?: string; device_id?: string };
     let sql = LIST_SQL;
     const params: any[] = [];
     if (q) {
       sql += ` WHERE i.no_inventaris ILIKE $1 OR s.hostname ILIKE $1 OR i.lokasi ILIKE $1`;
       params.push(`%${q}%`);
+    } else if (device_id) {
+      sql += ` WHERE i.device_id = $1`;
+      params.push(device_id);
     }
     sql += ` ORDER BY i.created_at DESC`;
     return (await db.query(sql, params)).rows;
@@ -53,6 +56,11 @@ const inventoryRoutes: FastifyPluginAsync = async (fastify) => {
          VALUES ($1, $2, $3, $4) RETURNING id`,
         [String(no_inventaris).trim(), device_id || null, lokasi || null, catatan || null]
       );
+      // Group milik device: samakan device_specs + semua baris inventaris device ini.
+      if (device_id) {
+        await db.query("UPDATE device_specs SET lokasi = $1 WHERE device_id = $2", [lokasi || null, device_id]);
+        await db.query("UPDATE inventories SET lokasi = $1 WHERE device_id = $2", [lokasi || null, device_id]);
+      }
       return await detail(res.rows[0].id);
     } catch (e: any) {
       if (e.code === "23505") {
@@ -64,7 +72,6 @@ const inventoryRoutes: FastifyPluginAsync = async (fastify) => {
       throw e;
     }
   });
-
   async function detail(id: string) {
     const inv = (await db.query(`${LIST_SQL} WHERE i.id = $1`, [id])).rows[0];
     if (inv) {
@@ -126,6 +133,15 @@ const inventoryRoutes: FastifyPluginAsync = async (fastify) => {
     } catch (e: any) {
       if (e.code === "23505") return reply.status(409).send({ error: "No inventaris sudah dipakai" });
       throw e;
+    }
+    // Group milik device: samakan device_specs + semua baris inventaris device ini.
+    if (lokasi !== undefined) {
+      const row = (await db.query("SELECT device_id FROM inventories WHERE id = $1", [id])).rows[0];
+      const group = lokasi || null;
+      if (row?.device_id) {
+        await db.query("UPDATE device_specs SET lokasi = $1 WHERE device_id = $2", [group, row.device_id]);
+        await db.query("UPDATE inventories SET lokasi = $1 WHERE device_id = $2", [group, row.device_id]);
+      }
     }
     return detail(id);
   });
