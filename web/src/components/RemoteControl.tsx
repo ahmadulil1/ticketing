@@ -38,6 +38,7 @@ export default function RemoteControl({
   // true = tampilkan layar pada ukuran asli (1:1) + scrollable
   const [actualSize, setActualSize] = useState(false);
   const wsRef = useRef<WebSocket | null>(null);
+  const screenRef = useRef<HTMLImageElement | null>(null);
 
   // Remote desktop (capture + kontrol) diimplementasi untuk macOS + Windows.
   const os = (osName || "").toLowerCase();
@@ -56,20 +57,23 @@ export default function RemoteControl({
     if (!viewerOpen || !session) return;
     let ws: WebSocket | null = null;
     let alive = true;
+    let retryTimer: ReturnType<typeof setTimeout> | undefined;
+    let decoding = false;
 
     const connect = async () => {
+      if (!alive) return;
       const wsUrl =
         (import.meta.env.VITE_WS_URL as string | undefined) ||
         (import.meta.env.VITE_API_URL as string | undefined)
           ?.replace(/^http/, "ws")
           .replace(/\/api$/, "") ||
-        "ws://localhost";
+        `${window.location.protocol === "https:" ? "wss:" : "ws:"}//${window.location.host}`;
       try {
         ws = new WebSocket(`${wsUrl}/ws`);
         ws.binaryType = "arraybuffer";
 
         ws.onopen = () => {
-          if (!ws) return;
+          if (!alive || !ws) { ws?.close(); return; }
           setViewerConnected(true);
           wsRef.current = ws;
           ws.send(
@@ -93,8 +97,17 @@ export default function RemoteControl({
             const data = JSON.parse(raw);
             if (data.type === "remote_frame" && data.session_id === session.id) {
               const mime = data.format === "jpeg" ? "image/jpeg" : "image/png";
-              setFrameData(`data:${mime};base64,${data.data}`);
-              setSessionEnded(false);
+              // Keep previous frame visible until replacement has decoded.
+              if (decoding) return;
+              decoding = true;
+              const image = new Image();
+              image.src = `data:${mime};base64,${data.data}`;
+              image.decode().then(() => {
+                if (alive) {
+                  setFrameData(image.src);
+                  setSessionEnded(false);
+                }
+              }).catch(() => {}).finally(() => { decoding = false; });
             }
             // Sesi diakhiri (admin/klien/timeout) — jangan tampilkan frame beku
             if (data.type === "remote_ended" && data.sessionId === session.id) {
@@ -105,19 +118,21 @@ export default function RemoteControl({
         };
 
         ws.onclose = () => {
+          if (!alive) return;
           setViewerConnected(false);
           wsRef.current = null;
-          if (alive) setTimeout(connect, 3000);
+          if (alive) retryTimer = setTimeout(connect, 3000);
         };
       } catch {
         setViewerConnected(false);
-        if (alive) setTimeout(connect, 3000);
+        if (alive) retryTimer = setTimeout(connect, 3000);
       }
     };
 
     connect();
     return () => {
       alive = false;
+      clearTimeout(retryTimer);
       if (ws) ws.close();
       wsRef.current = null;
     };
@@ -164,7 +179,9 @@ export default function RemoteControl({
 
   const handleMouseDown = useCallback(
     (e: React.MouseEvent) => {
+      screenRef.current?.focus({ preventScroll: true });
       const { x, y } = toNorm(e);
+      sendInput({ type: "MouseMove", x, y, norm: true });
       sendInput({
         type: "MouseDown",
         button: e.button === 2 ? "right" : "left",
@@ -180,6 +197,7 @@ export default function RemoteControl({
   const handleMouseUp = useCallback(
     (e: React.MouseEvent) => {
       const { x, y } = toNorm(e);
+      sendInput({ type: "MouseMove", x, y, norm: true });
       sendInput({
         type: "MouseUp",
         button: e.button === 2 ? "right" : "left",
@@ -343,7 +361,10 @@ export default function RemoteControl({
               ) : frameData ? (
                 <div className={actualSize ? "remote-screen-wrap actual" : "remote-screen-wrap"}>
                   <img
+                    ref={screenRef}
                     src={frameData}
+                    draggable={false}
+                    onDragStart={(e) => e.preventDefault()}
                     alt="Remote screen"
                     className={actualSize ? "remote-screen actual" : "remote-screen"}
                     onMouseMove={handleMouseMove}

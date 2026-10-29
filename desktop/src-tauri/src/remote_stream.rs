@@ -55,7 +55,6 @@ pub async fn remote_capture_and_send(
     });
     app.emit_to("pet-overlay", "remote-frame", payload.clone())
         .map_err(|e| format!("emit frame gagal: {}", e))?;
-    let _ = app.emit("remote-frame", payload);
 
     Ok(())
     }
@@ -153,7 +152,6 @@ pub async fn remote_capture_and_send(
     app.emit_to("pet-overlay", "remote-frame", payload.clone())
         .map_err(|e| format!("emit frame gagal: {}", e))?;
     // fallback: broadcast ke semua window
-    let _ = app.emit("remote-frame", payload);
 
     Ok(())
     }

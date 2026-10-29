@@ -183,6 +183,7 @@ fn send_inputs(inputs: &[windows::Win32::UI::Input::KeyboardAndMouse::INPUT]) ->
         )
     };
     if sent as usize != inputs.len() {
+        crate::logging::log("[remote] SendInput gagal: Windows menolak input; periksa UIPI / secure desktop");
         return Err("SendInput ditolak Windows (UIPI? app butuh elevated?)".to_string());
     }
     Ok(())
@@ -248,7 +249,7 @@ pub fn inject(
                 "center" | "middle" => MOUSEEVENTF_MIDDLEDOWN,
                 _ => MOUSEEVENTF_LEFTDOWN,
             };
-            send_inputs(&[mouse_input(flag, ax, ay)])
+            send_inputs(&[mouse_input(flag | MOUSEEVENTF_MOVE | MOUSEEVENTF_ABSOLUTE, ax, ay)])
         }
         RemoteInput::MouseUp { button, x, y, norm } => {
             let (ax, ay) = to_absolute(*x, *y, *norm, screen_w, screen_h);
@@ -257,7 +258,7 @@ pub fn inject(
                 "center" | "middle" => MOUSEEVENTF_MIDDLEDOWN,
                 _ => MOUSEEVENTF_LEFTUP,
             };
-            send_inputs(&[mouse_input(flag, ax, ay)])
+            send_inputs(&[mouse_input(flag | MOUSEEVENTF_MOVE | MOUSEEVENTF_ABSOLUTE, ax, ay)])
         }
         RemoteInput::KeyDown {
             key,

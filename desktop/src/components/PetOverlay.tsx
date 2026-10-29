@@ -97,6 +97,7 @@ export default function PetOverlay({ onClick }: Props) {
   // State di-capture stale karena effect WS tidak depend ke remoteState
   // (depend ke remoteSessionId) -> input dari viewer selalu terkira "belum active".
   const remoteStateRef = useRef<RemoteState>("idle");
+  const lastInputErrorRef = useRef(0);
 
   // Sinkronkan ref remote state
   useEffect(() => {
@@ -250,7 +251,15 @@ export default function PetOverlay({ onClick }: Props) {
                     sessionId: remoteSessionId,
                     input: data.input,
                   })
-                    .catch((e) => console.error("[pet] inject error:", e));
+                    .catch((e) => {
+                      console.error("[pet] inject error:", e);
+                      if (Date.now() - lastInputErrorRef.current < 30000) return;
+                      lastInputErrorRef.current = Date.now();
+                      api.patch(`/remote/${remoteSessionId}`, {
+                        status: "accepted", device_id: deviceId, device_secret: getDeviceSecret(),
+                        note: `input error: ${String(e).slice(0, 180)}`,
+                      }).catch(() => {});
+                    });
                 }
                 break;
               default:
@@ -283,7 +292,10 @@ export default function PetOverlay({ onClick }: Props) {
     if (remoteState === "active" && remoteSessionId && isRemotePlatform) {
       let lastNote = "";
       let lastErrNote = "";
+      let capturing = false;
       captureLoopRef.current = setInterval(async () => {
+        if (capturing || !wsRef.current || wsRef.current.readyState !== WebSocket.OPEN || wsRef.current.bufferedAmount > 1024 * 1024) return;
+        capturing = true;
         try {
           await tauriInvokeStrict("remote_capture_and_send", {
             sessionId: remoteSessionId,
@@ -309,6 +321,8 @@ export default function PetOverlay({ onClick }: Props) {
               note: `capture error: ${msg}`,
             }).catch(() => {});
           }
+        } finally {
+          capturing = false;
         }
       }, 500); // ~2 FPS
       return () => {
@@ -330,13 +344,14 @@ export default function PetOverlay({ onClick }: Props) {
   // -------------------------------------------------------------------
   useEffect(() => {
     let unlisten: (() => void) | undefined = undefined;
+    let disposed = false;
     const start = async () => {
       try {
         const { listen } = await import("@tauri-apps/api/event");
         const u = await listen("remote-frame", (event: any) => {
           const payload = event?.payload;
           const ws = wsRef.current;
-          if (ws && ws.readyState === WebSocket.OPEN) {
+          if (!disposed && payload?.session_id === remoteSessionId && ws && ws.readyState === WebSocket.OPEN && ws.bufferedAmount <= 1024 * 1024) {
             ws.send(
               JSON.stringify({
                 type: "remote_frame",
@@ -347,13 +362,15 @@ export default function PetOverlay({ onClick }: Props) {
             );
           }
         });
-        unlisten = u;
+        if (disposed) u();
+        else unlisten = u;
       } catch (e) {
         console.error("[pet] listen remote-frame gagal:", e);
       }
     };
     start();
     return () => {
+      disposed = true;
       if (unlisten) unlisten();
     };
   }, [remoteSessionId]);
