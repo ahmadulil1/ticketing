@@ -190,6 +190,12 @@ const ticketRoutes: FastifyPluginAsync = async (fastify) => {
        VALUES ($1, $2, 'system', 'system', 'Tiket dibuat')`,
       [result.rows[0].id, user.id]
     );
+
+    await db.query(
+      `INSERT INTO audit_logs (ticket_id, actor_id, action, new_value)
+       VALUES ($1, $2, 'ticket_created', $3)`,
+      [result.rows[0].id, user.id, ticketNumber]
+    );
     
     return reply.status(201).send(result.rows[0]);
   });
@@ -244,6 +250,12 @@ const ticketRoutes: FastifyPluginAsync = async (fastify) => {
       `INSERT INTO messages (ticket_id, sender_role, message_type, body)
        VALUES ($1, 'system', 'system', 'Tiket dibuat')`,
       [result.rows[0].id]
+    );
+
+    await db.query(
+      `INSERT INTO audit_logs (ticket_id, actor_id, action, new_value)
+       VALUES ($1, NULL, 'ticket_created', $2)`,
+      [result.rows[0].id, ticketNumber]
     );
 
     return reply.status(201).send(result.rows[0]);
@@ -473,7 +485,7 @@ const ticketRoutes: FastifyPluginAsync = async (fastify) => {
       return reply.status(401).send({ error: "Unauthorized" });
     }
 
-    const user = request.user as { role: string };
+    const user = request.user as { id: string; role: string };
     if (user.role === "user") {
       return reply.status(403).send({ error: "Akses ditolak" });
     }
@@ -481,17 +493,63 @@ const ticketRoutes: FastifyPluginAsync = async (fastify) => {
     const { id } = request.params as { id: string };
     const { assigneeId } = request.body as { assigneeId: string | null };
 
+    const oldRow = await db.query(
+      `SELECT t.assignee_id, COALESCE(u.full_name, u.username) AS assignee_name
+       FROM tickets t
+       LEFT JOIN users u ON u.id = t.assignee_id
+       WHERE t.id = $1`,
+      [id]
+    );
+    if (!oldRow.rows[0]) {
+      return reply.status(404).send({ error: "Tiket tidak ditemukan" });
+    }
+
     const result = await db.query(
       `UPDATE tickets SET assignee_id = $1, updated_at = CURRENT_TIMESTAMP
        WHERE id = $2 RETURNING *`,
       [assigneeId || null, id]
     );
 
-    if (!result.rows[0]) {
-      return reply.status(404).send({ error: "Tiket tidak ditemukan" });
+    if (oldRow.rows[0].assignee_id !== (assigneeId || null)) {
+      const newNameRes = assigneeId
+        ? await db.query("SELECT COALESCE(full_name, username) AS name FROM users WHERE id = $1", [assigneeId])
+        : null;
+      const newName = newNameRes?.rows[0]?.name || "Belum ditugaskan";
+      await db.query(
+        `INSERT INTO audit_logs (ticket_id, actor_id, action, old_value, new_value)
+         VALUES ($1, $2, 'assigned', $3, $4)`,
+        [id, user.id, oldRow.rows[0].assignee_name || "Belum ditugaskan", newName]
+      );
     }
 
     return result.rows[0];
+  });
+
+  // Riwayat aktivitas tiket (agent/admin only)
+  fastify.get("/:id/audit", async (request, reply) => {
+    try {
+      await request.jwtVerify();
+    } catch {
+      return reply.status(401).send({ error: "Unauthorized" });
+    }
+
+    const user = request.user as { role: string };
+    if (user.role === "user") {
+      return reply.status(403).send({ error: "Akses ditolak" });
+    }
+
+    const { id } = request.params as { id: string };
+    const result = await db.query(
+      `SELECT a.id, a.action, a.old_value, a.new_value, a.created_at,
+              COALESCE(u.full_name, u.username, 'System') AS actor_name
+       FROM audit_logs a
+       LEFT JOIN users u ON u.id = a.actor_id
+       WHERE a.ticket_id = $1
+       ORDER BY a.created_at DESC`,
+      [id]
+    );
+
+    return result.rows;
   });
 
   // Update ticket status

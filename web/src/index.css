@@ -561,6 +561,15 @@ body {
 .ticket-attachments { margin: 0.625rem 0; }
 .ticket-header-info h3, .ticket-description { white-space: pre-wrap; overflow-wrap: anywhere; }
 .ticket-description { max-height: 12rem; overflow-y: auto; }
+.ticket-audit { margin-top: 0.625rem; border-top: 1px dashed var(--border); padding-top: 0.5rem; font-size: 0.75rem; }
+.ticket-audit summary { cursor: pointer; color: var(--text-2); font-weight: 600; display: inline-flex; align-items: center; gap: 0.35rem; list-style: none; user-select: none; }
+.ticket-audit summary::-webkit-details-marker { display: none; }
+.ticket-audit summary:hover { color: var(--primary); }
+.ticket-audit-list { margin-top: 0.5rem; display: flex; flex-direction: column; gap: 0.35rem; max-height: 140px; overflow-y: auto; padding-right: 4px; }
+.ticket-audit-item { display: flex; align-items: baseline; justify-content: space-between; gap: 0.5rem; padding: 0.2rem 0; border-bottom: 1px solid var(--border-soft); color: var(--text-2); font-size: 0.75rem; }
+.ticket-audit-actor { font-weight: 600; color: var(--text); flex-shrink: 0; }
+.ticket-audit-desc { flex: 1; min-width: 0; overflow-wrap: anywhere; }
+.ticket-audit-time { font-size: 0.6875rem; color: var(--text-3); flex-shrink: 0; font-family: monospace; }
 
 /* Lightbox */
 .lightbox {

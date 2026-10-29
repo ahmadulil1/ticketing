@@ -8,7 +8,7 @@ import api from "../lib/api";
 import RemoteControl from "../components/RemoteControl";
 import { useTheme } from "../hooks/useTheme";
 import dayjs from "dayjs";
-import { ArrowLeft, Send, Sun, Moon, Paperclip, X, Loader2 } from "lucide-react";
+import { ArrowLeft, Send, Sun, Moon, Paperclip, X, Loader2, History } from "lucide-react";
 
 const statusColors: Record<string, string> = {
   baru: "status-baru",
@@ -16,6 +16,15 @@ const statusColors: Record<string, string> = {
   menunggu_pengguna: "status-tunggu",
   selesai: "status-selesai",
   ditutup: "status-tutup",
+};
+
+const statusLabels: Record<string, string> = {
+  baru: "Diterima",
+  sedang_ditangani: "Sedang Dikerjakan",
+  menunggu_pengguna: "Menunggu",
+  selesai: "Selesai",
+  ditutup: "Ditutup",
+  dibuka_kembali: "Dibuka Kembali",
 };
 
 export default function TicketDetail({ ticketId, embedded = false, readEnabled = true }: { ticketId?: string; embedded?: boolean; readEnabled?: boolean }) {
@@ -93,6 +102,16 @@ export default function TicketDetail({ ticketId, embedded = false, readEnabled =
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [messages?.length, readEnabled]);
 
+  const user = JSON.parse(localStorage.getItem("user") || "{}");
+  const isStaff = user.role === "agent" || user.role === "admin";
+
+  const { data: auditLogs = [] } = useQuery({
+    queryKey: ["ticket-audit", id],
+    queryFn: async () => (await api.get(`/tickets/${id}/audit`)).data as Array<any>,
+    enabled: !!id && isStaff,
+    refetchInterval: 15000,
+  });
+
   const { data: agents } = useQuery({
     queryKey: ["users"],
     queryFn: async () => {
@@ -108,6 +127,7 @@ export default function TicketDetail({ ticketId, embedded = false, readEnabled =
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["ticket", id] });
       queryClient.invalidateQueries({ queryKey: ["tickets"] });
+      queryClient.invalidateQueries({ queryKey: ["ticket-audit", id] });
     },
   });
 
@@ -153,6 +173,7 @@ export default function TicketDetail({ ticketId, embedded = false, readEnabled =
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["ticket", id] });
       queryClient.invalidateQueries({ queryKey: ["tickets"] });
+      queryClient.invalidateQueries({ queryKey: ["ticket-audit", id] });
     },
   });
 
@@ -203,8 +224,6 @@ export default function TicketDetail({ ticketId, embedded = false, readEnabled =
   const totalMsgPages = Math.max(1, Math.ceil(all.length / PER));
   const curMsgPage = Math.min(msgPage ?? totalMsgPages, totalMsgPages);
   const shown = all.slice((curMsgPage - 1) * PER, curMsgPage * PER);
-
-  const user = JSON.parse(localStorage.getItem("user") || "{}");
 
   return (
     <div className="ticket-detail">
@@ -268,6 +287,38 @@ export default function TicketDetail({ ticketId, embedded = false, readEnabled =
               ))}
             </select>
           </div>
+        )}
+        {isStaff && (
+          <details className="ticket-audit">
+            <summary>
+              <History size={13} /> Riwayat Aktivitas ({auditLogs.length})
+            </summary>
+            <div className="ticket-audit-list">
+              {auditLogs.length === 0 ? (
+                <div className="muted">Belum ada riwayat tercatat.</div>
+              ) : (
+                auditLogs.map((log: any) => {
+                  let desc = "";
+                  if (log.action === "status_changed") {
+                    desc = `Status: ${statusLabels[log.old_value] || log.old_value || "—"} → ${statusLabels[log.new_value] || log.new_value}`;
+                  } else if (log.action === "assigned") {
+                    desc = `Penugasan: ${log.old_value || "—"} → ${log.new_value || "—"}`;
+                  } else if (log.action === "ticket_created") {
+                    desc = "Tiket dibuat";
+                  } else {
+                    desc = `${log.action}: ${log.old_value || "—"} → ${log.new_value || "—"}`;
+                  }
+                  return (
+                    <div key={log.id} className="ticket-audit-item">
+                      <span className="ticket-audit-actor">{log.actor_name}</span>
+                      <span className="ticket-audit-desc">{desc}</span>
+                      <time className="ticket-audit-time">{dayjs(log.created_at).format("DD/MM HH:mm")}</time>
+                    </div>
+                  );
+                })
+              )}
+            </div>
+          </details>
         )}
       </div>
 
