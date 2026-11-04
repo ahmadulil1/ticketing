@@ -1,7 +1,7 @@
 import { QueryClient, QueryClientProvider, useQuery } from "@tanstack/react-query";
-import { BrowserRouter, Routes, Route, Navigate, NavLink, useLocation } from "react-router-dom";
-import { LayoutDashboard, Monitor, Users, BarChart3, LogOut, Menu, X, Sun, Moon, Bell } from "lucide-react";
-import { useEffect, useState } from "react";
+import { BrowserRouter, Routes, Route, Navigate, NavLink, useLocation, Link } from "react-router-dom";
+import { LayoutDashboard, Monitor, Users, BarChart3, LogOut, Menu, X, Sun, Moon, Bell, Ticket } from "lucide-react";
+import { useEffect, useRef, useState } from "react";
 import api from "./lib/api";
 import { useTheme } from "./hooks/useTheme";
 import DownloadMenu from "./components/DownloadMenu";
@@ -41,6 +41,120 @@ function TopBarTheme() {
   );
 }
 
+/**
+ * Dialog notifikasi, disamakan dengan production (ticketing.marisoncloud.com):
+ * modal <dialog> berisi riwayat notifikasi, lonceng selalu tampil dan bisa
+ * diklik. Production mengambil riwayat dari GET /messages/notifications,
+ * yang tidak dimiliki server lokal — di sini riwayat disusun dari dua
+ * endpoint lokal yang sudah ada: /messages/unread (peta tiket -> jumlah
+ * pesan belum dibaca, dipakai badge juga) digabung /tickets (detail tiket,
+ * urut aktivitas terbaru; pesan baru memperbarui updated_at tiket, jadi
+ * tiket yang punya pesan belum dibaca selalu berada di urutan atas).
+ * Item belum dibaca tampil di depan ("Pesan baru"), dilanjutkan tiket
+ * terbaru ("Dibaca"), maks 20 item. Dua perbedaan yang tidak bisa
+ * direproduksi lokal: label "Tiket baru" production (jenis notifikasi hanya
+ * diketahui server production) dan waktu last_message_at (di sini dipakai
+ * updated_at tiket sebagai waktu aktivitas terakhir).
+ */
+function NotificationDialog({ open, setOpen, unread }: {
+  open: boolean;
+  setOpen: (v: boolean) => void;
+  unread: Record<string, number>;
+}) {
+  const dialogRef = useRef<HTMLDialogElement>(null);
+
+  useEffect(() => {
+    const d = dialogRef.current;
+    if (!d) return;
+    if (open && !d.open) d.showModal();
+    else if (!open && d.open) d.close();
+    return () => { if (d.open) d.close(); };
+  }, [open ]);
+
+  const { data: tickets, isLoading, isError, refetch } = useQuery({
+    queryKey: ["notification-history"],
+    queryFn: async () => {
+      const res = await api.get("/tickets?limit=100");
+      return res.data as Array<any>;
+    },
+    enabled: open,
+    refetchInterval: 30000,
+  });
+
+  const list = tickets || [];
+  const unreadIds = Object.keys(unread);
+  const byId = new Map(list.map((t) => [String(t.id), t]));
+  const unreadItems = unreadIds
+    .map((id) => byId.get(id))
+    .filter((t) => t != null)
+    .sort((a, b) => +new Date(b.updated_at) - +new Date(a.updated_at));
+  const readItems = list
+    .filter((t) => !unreadIds.includes(String(t.id)))
+    .slice(0, Math.max(0, 20 - unreadItems.length));
+  const items = [...unreadItems, ...readItems];
+
+  return (
+    <dialog
+      ref={dialogRef}
+      className="notification-dialog"
+      aria-labelledby="notification-title"
+      onCancel={() => setOpen(false)}
+      onClick={(e) => { if (e.target === e.currentTarget) setOpen(false); }}
+    >
+      <div className="notification-panel">
+        <div className="notification-head">
+          <h3 id="notification-title"><Bell size={16} /> Notifikasi</h3>
+          <button
+            className="icon-btn"
+            autoFocus
+            aria-label="Tutup notifikasi"
+            onClick={() => setOpen(false)}
+          >
+            <X size={17} />
+          </button>
+        </div>
+        <div className="notification-list">
+          {isLoading ? (
+            <div className="notification-empty" role="status">Memuat notifikasi…</div>
+          ) : isError ? (
+            <div className="notification-empty">
+              Gagal memuat riwayat. <button className="nav-item" onClick={() => refetch()}>Coba lagi</button>
+            </div>
+          ) : items.length === 0 ? (
+            <div className="notification-empty">Belum ada riwayat notifikasi</div>
+          ) : (
+            items.map((t) => {
+              const n = unread[String(t.id)] || 0;
+              return (
+                <Link
+                  key={t.id}
+                  to={`/ticket/${t.id}`}
+                  className="notification-item"
+                  onClick={(e) => {
+                    if (e.ctrlKey || e.metaKey || e.shiftKey || e.altKey) return;
+                    setOpen(false);
+                  }}
+                >
+                  <div><Ticket size={20} /></div>
+                  <div className="notification-copy">
+                    <div className="notification-row">
+                      <span className="notification-title">{t.ticket_number} — {t.title}</span>
+                      <span className="notification-count">{n > 0 ? "Pesan baru" : "Dibaca"}</span>
+                    </div>
+                    <div className="notification-meta">
+                      <time dateTime={t.updated_at}>{new Date(t.updated_at).toLocaleString("id-ID")}</time>
+                    </div>
+                  </div>
+                </Link>
+              );
+            })
+          )}
+        </div>
+      </div>
+    </dialog>
+  );
+}
+
 function PrivateRoute({ children }: { children: React.ReactNode }) {
   const token = localStorage.getItem("token");
   return token ? <>{children}</> : <Navigate to="/login" />;
@@ -48,6 +162,7 @@ function PrivateRoute({ children }: { children: React.ReactNode }) {
 
 function TopBar() {
   const [drawerOpen, setDrawerOpen] = useState(false);
+  const [notifOpen, setNotifOpen] = useState(false);
   const loc = useLocation();
 
   // Tutup drawer saat pindah halaman
@@ -96,12 +211,17 @@ function TopBar() {
         <nav>{navItems}</nav>
         <span className="spacer" />
         <div className="tb-actions">
-          {totalUnread > 0 && (
-            <span className="nav-item" style={{ cursor: "default", pointerEvents: "none" }}>
-              <Bell size={16} />
-              <span className="badge">{totalUnread > 99 ? "99+" : totalUnread}</span>
-            </span>
-          )}
+          <button
+            className="icon-btn notification-trigger"
+            onClick={() => setNotifOpen((o) => !o)}
+            aria-label="Notifikasi"
+            title="Notifikasi"
+          >
+            <Bell size={16} />
+            {totalUnread > 0 && (
+              <span className="notification-badge">{totalUnread > 99 ? "99+" : totalUnread}</span>
+            )}
+          </button>
           <TopBarTheme />
           <DownloadMenu />
           <button
@@ -119,6 +239,10 @@ function TopBar() {
         </div>
       </header>
 
+      {notifOpen && (
+        <NotificationDialog open={notifOpen} setOpen={setNotifOpen} unread={unread || {}} />
+      )}
+
       {drawerOpen && (
         <>
           <div className="drawer-backdrop" onClick={() => setDrawerOpen(false)} />
@@ -128,9 +252,7 @@ function TopBar() {
                 <span className="brand-dot" />
                 <span>Ticketing</span>
               </span>
-              <button className="icon-btn" onClick={() => setDrawerOpen(false)} aria-label="Tutup menu">
-                <X size={17} />
-              </button>
+              <button className="icon-btn" onClick={() => setDrawerOpen(false)} aria-label="Tutup menu"><X size={17} /></button>
             </div>
             {navItems}
             <span className="spacer" />

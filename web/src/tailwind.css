@@ -1,0 +1,110 @@
+/* Tailwind v4 TANPA preflight: halaman yang masih memakai CSS custom tidak berubah. */
+@import "tailwindcss/theme.css";
+@import "tailwindcss/utilities.css";
+
+/* Varian dark mengikuti atribut [data-theme] aplikasi, bukan preferensi OS. */
+@custom-variant dark (&:where([data-theme="dark"], [data-theme="dark"] *));
+
+/* Reset minimal tombol (pengganti preflight yang sengaja tidak dipakai):
+   tanpa ini, <button> tampil dengan latar + border default browser
+   (abu-abu di mode gelap) karena tidak ada class background-nya.
+   Ditaruh di @layer base supaya utility Tailwind (border, bg-*) dan
+   CSS custom lama (unlayered) tetap menang atas reset ini. */
+@layer base {
+  button {
+    background-color: transparent;
+    border: 0 solid;
+    font: inherit;
+    color: inherit;
+    cursor: pointer;
+  }
+  /* Tanpa preflight, <textarea> native tampil dengan border bawaan browser
+     (terlihat sebagai garis kotak di dalam komposer chat). */
+  textarea {
+    background-color: transparent;
+    border: 0 solid;
+    font: inherit;
+    color: inherit;
+  }
+}
+
+/* Token shadcn, dipetakan ke variabel tema aplikasi.
+   Nilainya berupa referensi var(--...) sehingga otomatis ikut tema gelap/terang
+   yang dikendalikan atribut [data-theme] oleh useTheme(). */
+:root {
+  --background: var(--bg);
+  --foreground: var(--text);
+  --card: var(--surface);
+  --card-foreground: var(--text);
+  --popover: var(--surface);
+  --popover-foreground: var(--text);
+  --primary-foreground: #ffffff;
+  --secondary: var(--surface-3);
+  --secondary-foreground: var(--text);
+  --muted: var(--surface-3);
+  --muted-foreground: var(--text-2);
+  --accent: var(--surface-3);
+  --accent-foreground: var(--text);
+  --destructive: var(--danger);
+  --destructive-foreground: #ffffff;
+  --input: var(--border);
+  --ring: var(--primary);
+  --radius: 0.625rem;
+}
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-destructive-foreground: var(--destructive-foreground);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+  --radius-sm: calc(var(--radius) - 4px);
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) + 4px);
+}
+
+/* Dashboard full-width (pindahan dari blok CSS lama, dipertahankan). */
+.dash.page { max-width: none; }
+
+/* Kontrol native (ikon date picker, popup dropdown select, scrollbar)
+   mengikuti tema aplikasi, bukan default terang browser. */
+:root {
+  color-scheme: light;
+}
+[data-theme="dark"] {
+  color-scheme: dark;
+}
+
+/* Scrollbar tipis khusus area chat (Chromium/WebKit + Firefox). */
+.chat-scroll {
+  scrollbar-width: thin;
+  scrollbar-color: color-mix(in srgb, var(--color-muted-foreground) 40%, transparent) transparent;
+}
+.chat-scroll::-webkit-scrollbar {
+  width: 8px;
+}
+.chat-scroll::-webkit-scrollbar-track {
+  background: transparent;
+}
+.chat-scroll::-webkit-scrollbar-thumb {
+  background: color-mix(in srgb, var(--color-muted-foreground) 35%, transparent);
+  border-radius: 8px;
+}
+.chat-scroll::-webkit-scrollbar-thumb:hover {
+  background: color-mix(in srgb, var(--color-muted-foreground) 55%, transparent);
+}

@@ -292,6 +292,29 @@ body {
 .device-group-modal { width: min(540px, 100%); max-height: 85vh; overflow: auto; }
 .device-group-row { display: flex; justify-content: space-between; align-items: center; padding: 8px 0; border-bottom: 1px solid var(--border); }
 
+/* ===== Group perangkat lipat/buka (dropdown tiap grup di /devices) ===== */
+.device-groups { display: flex; flex-direction: column; gap: 0.75rem; }
+.device-group-section { min-width: 0; }
+.device-group-head {
+  width: 100%; display: flex; align-items: center; gap: 0.6rem;
+  padding: 0.7rem 1rem; background: var(--surface); border: 1px solid var(--border);
+  border-radius: 12px; cursor: pointer; font: inherit; color: var(--text); text-align: left;
+}
+.device-group-head:hover { border-color: var(--text-2); }
+.device-group-chevron { flex-shrink: 0; color: var(--text-2); transition: transform 0.18s ease; }
+.device-group-chevron.is-collapsed { transform: rotate(-90deg); }
+.device-group-name { font-weight: 650; font-size: 0.95rem; }
+.device-group-count {
+  margin-left: auto; flex-shrink: 0; font-size: 0.75rem; color: var(--text-2);
+  background: color-mix(in srgb, var(--text-2) 12%, transparent);
+  padding: 0.15rem 0.6rem; border-radius: 999px;
+}
+.device-group-section .device-cards { margin-top: 0.75rem; }
+.device-group-empty {
+  margin-top: 0.75rem; padding: 0.9rem 1rem; font-size: 0.85rem; color: var(--text-2);
+  background: var(--surface); border: 1px dashed var(--border); border-radius: 12px;
+}
+
 /* ===== Kartu perangkat + panel detail ===== */
 .device-page .page-head { row-gap: 0.5rem; }
 .device-layout { display: grid; grid-template-columns: 1fr; gap: 1rem; align-items: start; }
@@ -669,23 +692,73 @@ body {
 .agent-actions select { padding: 0.375rem 0.5rem; border: 1px solid var(--border); border-radius: 8px; font-size: 0.75rem; background: var(--surface); color: var(--text); font-family: inherit; }
 
 /* ===== Login ===== */
-.login-container { min-height: 100vh; display: flex; align-items: center; justify-content: center; background: linear-gradient(135deg, #4f6df5 0%, #764ba2 100%); }
-.login-box { background: var(--surface); padding: 2rem; border-radius: 12px; width: 100%; max-width: 400px; box-shadow: var(--shadow-lg); }
-.login-box h1 { text-align: center; margin-bottom: 1.5rem; color: var(--text); }
-.login-box input {
-  width: 100%; padding: 12px; margin-bottom: 1rem;
+.login-page { min-height: 100vh; min-height: 100dvh; display: flex; background: var(--bg); }
+/* Selaraskan dengan visual yang dilembutkan: di tema gelap, teks form diredupkan sedikit */
+[data-theme="dark"] .login-page { --text: #c3cddb; }
+
+/* Kolom kiri: formulir */
+.login-main { flex: 1; min-width: 0; display: flex; align-items: center; justify-content: center; padding: 2rem; }
+.login-main-inner { width: 100%; max-width: 400px; }
+.login-form-brand { display: flex; align-items: center; gap: 0.5rem; font-size: 1.125rem; font-weight: 800; margin-bottom: 2rem; }
+.login-main-inner h1 { font-size: 1.75rem; font-weight: 800; letter-spacing: -0.02em; margin-bottom: 0.5rem; color: var(--text); }
+.login-sub { color: var(--text-2); font-size: 0.9375rem; line-height: 1.5; margin-bottom: 2rem; }
+.login-field { margin-bottom: 1rem; }
+.login-field label { display: block; font-size: 0.8125rem; font-weight: 600; color: var(--text-2); margin-bottom: 0.375rem; }
+.login-field input {
+  width: 100%; padding: 12px 14px;
   border: 1px solid var(--border); border-radius: 8px; font-size: 1rem;
   background: var(--surface); color: var(--text); font-family: inherit;
 }
-.login-box input:focus { border-color: var(--primary); outline: none; box-shadow: 0 0 0 3px var(--focus-ring); }
-.login-box button {
-  width: 100%; padding: 12px; background: var(--primary); color: white;
-  border: none; border-radius: 8px; font-size: 1rem; cursor: pointer; transition: background 0.2s;
-  font-family: inherit; font-weight: 600;
+.login-field input:focus { border-color: var(--primary); outline: none; box-shadow: 0 0 0 3px var(--focus-ring); }
+.login-password { position: relative; }
+.login-password input { padding-right: 2.75rem; }
+.login-toggle {
+  position: absolute; right: 0.5rem; top: 50%; transform: translateY(-50%);
+  width: 2rem; height: 2rem; padding: 0; background: none; border: none; border-radius: 6px;
+  display: inline-flex; align-items: center; justify-content: center;
+  color: var(--text-2); cursor: pointer;
 }
-.login-box button:hover:not(:disabled) { background: var(--primary-strong); }
-.login-box button:disabled { opacity: 0.6; cursor: not-allowed; }
+.login-toggle:hover { color: var(--text); }
+.login-caps { display: flex; align-items: center; gap: 0.375rem; margin-top: 0.375rem; font-size: 0.75rem; color: var(--warning); }
+.login-error {
+  display: flex; gap: 0.5rem; align-items: flex-start;
+  padding: 0.75rem 0.875rem; margin-bottom: 1rem; border-radius: 8px;
+  background: rgba(231, 76, 60, 0.08); border: 1px solid rgba(231, 76, 60, 0.25);
+  color: var(--danger-strong); font-size: 0.875rem; line-height: 1.5;
+}
+.login-error svg { flex-shrink: 0; margin-top: 1px; }
+.login-submit {
+  width: 100%; padding: 13px; background: var(--primary); color: #e9eef5;
+  border: none; border-radius: 8px; font-size: 1rem; font-weight: 600; font-family: inherit;
+  cursor: pointer; transition: background 0.2s;
+  display: flex; align-items: center; justify-content: center; gap: 0.5rem;
+}
+.login-submit:hover:not(:disabled) { background: var(--primary-strong); }
+.login-submit:disabled { opacity: 0.65; cursor: not-allowed; }
+.login-spin { animation: login-spin 0.8s linear infinite; }
+@keyframes login-spin { to { transform: rotate(360deg); } }
+.login-note {
+  margin-top: 1.5rem; display: flex; gap: 0.5rem; align-items: flex-start; justify-content: center;
+  font-size: 0.8125rem; line-height: 1.5; color: var(--text-2); text-align: left;
+}
+.login-note svg { flex-shrink: 0; margin-top: 1px; }
+
+/* Kolom kanan: running text 1 baris besar (canvas) */
+.login-visual {
+  flex: 2; min-width: 0; position: relative;
+  overflow: hidden; background: #070b14;
+}
+.login-visual-canvas { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }
+
+/* Kompatibilitas: kelas error lama */
 .error { color: var(--danger); margin-bottom: 1rem; text-align: center; font-size: 0.8125rem; }
+
+/* Responsif: visual hilang, formulir saja */
+@media (max-width: 900px) {
+  .login-visual { display: none; }
+  .login-main { padding: 1.5rem; }
+  .login-main-inner h1 { font-size: 1.5rem; }
+}
 
 /* ===== Header actions (legacy compat) ===== */
 .header-actions { display: flex; gap: 0.5rem; margin-left: auto; }
@@ -889,3 +962,26 @@ body {
 .remote-agent { font-weight: 600; color: var(--text); min-width: 110px; }
 .remote-date { color: var(--text-2); font-size: 0.75rem; white-space: nowrap; }
 .remote-note { color: var(--text-3); font-size: 0.6875rem; margin-left: auto; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 180px; }
+
+
+
+
+
+/* ===== Notifikasi: disamakan dengan production (ticketing.marisoncloud.com) ===== */
+.notification-trigger { position: relative; }
+.notification-badge { background: var(--danger); color: #fff; border: 2px solid var(--shell-bg); border-radius: 10px; justify-content: center; align-items: center; min-width: 18px; height: 18px; padding: 0 4px; font-size: 10px; font-weight: 700; display: inline-flex; position: absolute; top: -6px; right: -7px; }
+.notification-dialog { width: 100%; max-width: none; height: 100%; max-height: none; color: var(--text); background: transparent; border: 0; margin: 0; padding: 0; position: fixed; inset: 0; }
+.notification-dialog::backdrop { background: rgba(0, 0, 0, 0.65); }
+.notification-panel { background: var(--surface); border: 1px solid var(--border); width: min(380px, calc(100% - 32px)); box-shadow: var(--shadow-lg); border-radius: 14px; position: absolute; top: 64px; right: 16px; overflow: hidden; }
+.notification-head { border-bottom: 1px solid var(--border-soft); justify-content: space-between; align-items: center; padding: 16px; display: flex; }
+.notification-head h3 { align-items: center; gap: 8px; font-size: 0.9375rem; display: flex; }
+.notification-head h3 svg, .notification-item > div:first-child { color: var(--primary); flex-shrink: 0; }
+.notification-list { max-height: calc(100dvh - 160px); padding: 8px; overflow-y: auto; }
+.notification-empty { text-align: center; color: var(--text-2); padding: 36px 16px; font-size: 0.875rem; }
+.notification-item { color: var(--text); border-radius: 8px; align-items: center; gap: 12px; padding: 12px; text-decoration: none; display: flex; }
+.notification-item:hover { background: var(--primary-tint); }
+.notification-copy { flex: 1; min-width: 0; }
+.notification-row { justify-content: space-between; align-items: center; gap: 8px; display: flex; }
+.notification-title { text-overflow: ellipsis; white-space: nowrap; font-size: 0.8125rem; font-weight: 600; overflow: hidden; }
+.notification-count { color: var(--primary); background: var(--primary-tint); border-radius: 99px; flex-shrink: 0; padding: 3px 8px; font-size: 0.6875rem; }
+.notification-meta { color: var(--text-2); align-items: center; gap: 4px; margin-top: 5px; font-size: 0.75rem; display: flex; }

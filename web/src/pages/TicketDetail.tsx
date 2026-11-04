@@ -7,14 +7,32 @@ import Gallery, { GalleryLabel } from "../components/Gallery";
 import api from "../lib/api";
 import { useTheme } from "../hooks/useTheme";
 import dayjs from "dayjs";
-import { ArrowLeft, Send, Sun, Moon, Paperclip, X, Loader2 } from "lucide-react";
+import { ArrowLeft, Sun, Moon, ChevronDown, ChevronUp, ArrowDown } from "lucide-react";
+import ChatThread from "../components/chat/ChatThread";
+import ChatComposer from "../components/chat/ChatComposer";
+import { Badge } from "../components/ui/badge";
+import { Button } from "../components/ui/button";
+import { Label } from "../components/ui/label";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "../components/ui/select";
 
-const statusColors: Record<string, string> = {
-  baru: "status-baru",
-  sedang_ditangani: "status-proses",
-  menunggu_pengguna: "status-tunggu",
-  selesai: "status-selesai",
-  ditutup: "status-tutup",
+const statusMeta: Record<
+  string,
+  {
+    variant: "statusBaru" | "statusProses" | "statusTunggu" | "statusSelesai" | "statusTutup" | "secondary";
+    label: string;
+  }
+> = {
+  baru: { variant: "statusBaru", label: "Diterima" },
+  sedang_ditangani: { variant: "statusProses", label: "Sedang Dikerjakan" },
+  menunggu_pengguna: { variant: "statusTunggu", label: "Menunggu" },
+  selesai: { variant: "statusSelesai", label: "Selesai" },
+  ditutup: { variant: "statusTutup", label: "Ditutup" },
 };
 
 export default function TicketDetail() {
@@ -38,7 +56,10 @@ export default function TicketDetail() {
   // Gambar yang dipilih untuk dikirim (belum diupload)
   const [pendingFiles, setPendingFiles] = useState<File[]>([]);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
-  const fileInputRef = useRef<HTMLInputElement>(null);
+  const [infoCollapsed, setInfoCollapsed] = useState(false);
+  const [showJump, setShowJump] = useState(false);
+  const messagesRef = useRef<HTMLDivElement>(null);
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
 
   const { data: ticket } = useQuery({
     queryKey: ["ticket", id],
@@ -183,6 +204,14 @@ export default function TicketDetail() {
     return () => URL.revokeObjectURL(url);
   }, [pendingFiles]);
 
+  // Textarea tumbuh mengikuti isi (maks 144px), kembali mengecil saat dikosongkan
+  useEffect(() => {
+    const el = textareaRef.current;
+    if (!el) return;
+    el.style.height = "auto";
+    el.style.height = Math.min(el.scrollHeight, 144) + "px";
+  }, [message]);
+
   const pickFiles = (list: FileList | null) => {
     if (!list?.length) return;
     const imgs = Array.from(list).filter((f) => f.type.startsWith("image/"));
@@ -193,7 +222,13 @@ export default function TicketDetail() {
     setPendingFiles((prev) => [...prev, ...imgs].slice(0, 5));
   };
 
-  if (!ticket) return <div className="loading">Memuat...</div>;
+  if (!ticket) {
+    return (
+      <div className="flex h-dvh items-center justify-center text-sm text-muted-foreground">
+        Memuat...
+      </div>
+    );
+  }
 
   // Pagination pesan: 10/halaman, default halaman terakhir
   const PER = 10;
@@ -202,193 +237,216 @@ export default function TicketDetail() {
   const curMsgPage = Math.min(msgPage ?? totalMsgPages, totalMsgPages);
   const shown = all.slice((curMsgPage - 1) * PER, curMsgPage * PER);
 
+  const handleMessagesScroll = () => {
+    const el = messagesRef.current;
+    if (!el) return;
+    setShowJump(el.scrollHeight - el.scrollTop - el.clientHeight > 200);
+  };
+
+  const jumpToLatest = () => {
+    if (curMsgPage < totalMsgPages) setMsgPage(null);
+    else messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+  };
+
   const user = JSON.parse(localStorage.getItem("user") || "{}");
+  const meta = statusMeta[ticket.status] || { variant: "secondary" as const, label: ticket.status };
 
   return (
-    <div className="ticket-detail">
-      <header>
-        <button onClick={goBack} className="back-btn">
+    <div className="flex h-dvh w-full flex-col overflow-hidden">
+      <header className="flex items-center gap-2 border-b border-border bg-card px-3 py-3 sm:px-4">
+        <Button variant="ghost" className="gap-1.5 px-2" onClick={goBack}>
           <ArrowLeft size={20} /> Kembali
-        </button>
-        <div className="ticket-info">
-          <h2>{ticket.ticket_number}</h2>
-          <span className={"status " + (statusColors[ticket.status] || "")}>{ticket.status.replace(/_/g, " ")}</span>
+        </Button>
+        <div className="flex min-w-0 flex-1 items-center gap-2.5">
+          <h2 className="truncate text-base font-bold tracking-tight sm:text-lg">
+            {ticket.ticket_number}
+          </h2>
+          <Badge variant={meta.variant}>{meta.label}</Badge>
         </div>
-        <button
-          className={"icon-btn" + (theme === "dark" ? " active" : "")}
+        <Button
+          variant="ghost"
+          size="icon"
+          className="ml-auto shrink-0"
           onClick={toggle}
           aria-label={theme === "dark" ? "Mode terang" : "Mode gelap"}
           title={theme === "dark" ? "Mode terang" : "Mode gelap"}
-          style={{ marginLeft: "auto" }}
         >
           {theme === "dark" ? <Sun size={17} /> : <Moon size={17} />}
-        </button>
+        </Button>
       </header>
 
-      <div className="ticket-header-info">
-        <span className="muted">Judul laporan</span>
-        <h3>{ticket.title}</h3>
-        <span className="muted">Detail masalah</span>
-        <p className="ticket-description">{ticket.description}</p>
+      <div className="flex min-h-0 flex-1 flex-col lg:flex-row">
+      <aside className={"shrink-0 border-b border-border bg-card lg:min-h-0 lg:border-b-0 lg:border-r lg:overflow-y-auto " + (infoCollapsed ? "lg:w-12" : "lg:w-[380px]")}>
+        <div className={"flex items-center justify-between gap-2 px-4 py-3 sm:px-6 lg:px-4 " + (infoCollapsed ? "lg:justify-center lg:px-2" : "")}>
+          <span className={"text-xs font-semibold uppercase tracking-wide text-muted-foreground " + (infoCollapsed ? "lg:hidden" : "")}>
+            Detail tiket
+          </span>
+          <Button
+            variant="ghost"
+            size="icon"
+            className="h-7 w-7 shrink-0"
+            onClick={() => setInfoCollapsed((c) => !c)}
+            aria-label={infoCollapsed ? "Tampilkan detail tiket" : "Sembunyikan detail tiket"}
+            title={infoCollapsed ? "Tampilkan detail tiket" : "Sembunyikan detail tiket"}
+          >
+            {infoCollapsed ? <ChevronDown size={16} /> : <ChevronUp size={16} />}
+          </Button>
+        </div>
+        {infoCollapsed ? (
+          <div className="truncate px-4 pb-3 text-sm font-medium sm:px-6 lg:hidden">{ticket.title}</div>
+        ) : (
+          <div className="space-y-4 px-4 pb-4 sm:px-6 lg:px-4">
+        <div>
+          <div className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+            Judul laporan
+          </div>
+          <h3 className="mt-1 text-lg font-bold [overflow-wrap:anywhere]">{ticket.title}</h3>
+        </div>
+        <div>
+          <div className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+            Detail masalah
+          </div>
+          <p className="mt-1 whitespace-pre-wrap text-sm text-muted-foreground [overflow-wrap:anywhere]">
+            {ticket.description}
+          </p>
+        </div>
         {ticket.attachments?.length > 0 && (
-          <div className="ticket-attachments">
+          <div>
             <GalleryLabel count={ticket.attachments.length} />
             <Gallery items={ticket.attachments} />
           </div>
         )}
-        <div className="meta">
-          <span>Pelapor: {ticket.requester_full_name || ticket.requester_name || "Karyawan"}</span>
-          {ticket.device_name && <span>Device: {ticket.device_name}</span>}
-          {ticket.lokasi && <span>Lokasi: {ticket.lokasi}</span>}
-          <span>Dibuat: {dayjs(ticket.created_at).format("DD MMM YYYY HH:mm")}</span>
+        <div className="grid grid-cols-2 gap-x-4 gap-y-3 border-t border-border pt-4">
+          <div className="min-w-0">
+            <div className="text-xs text-muted-foreground">Pelapor</div>
+            <div className="text-sm font-medium [overflow-wrap:anywhere]">
+              {ticket.requester_full_name || ticket.requester_name || "Karyawan"}
+            </div>
+          </div>
+          {ticket.device_name && (
+            <div className="min-w-0">
+              <div className="text-xs text-muted-foreground">Device</div>
+              <div className="text-sm font-medium [overflow-wrap:anywhere]">{ticket.device_name}</div>
+            </div>
+          )}
+          {ticket.lokasi && (
+            <div className="min-w-0">
+              <div className="text-xs text-muted-foreground">Lokasi</div>
+              <div className="text-sm font-medium [overflow-wrap:anywhere]">{ticket.lokasi}</div>
+            </div>
+          )}
+          <div className="min-w-0">
+            <div className="text-xs text-muted-foreground">Dibuat</div>
+            <div className="text-sm font-medium">{dayjs(ticket.created_at).format("DD MMM YYYY HH:mm")}</div>
+          </div>
         </div>
         {(user.role === "agent" || user.role === "admin") && (
-          <div className="actions">
-            <label>Ubah Status: </label>
-            <select value={ticket.status} onChange={(e) => updateStatus.mutate(e.target.value)}>
-              <option value="baru">Diterima</option>
-              <option value="sedang_ditangani">Sedang Dikerjakan</option>
-              <option value="menunggu_pengguna">Menunggu</option>
-              <option value="selesai">Selesai</option>
-              <option value="ditutup">Ditutup</option>
-            </select>
-            <label>Tugaskan: </label>
-            <select
-              value={ticket.assignee_id || ""}
-              onChange={(e) => assignTicket.mutate(e.target.value || null)}
-            >
-              <option value="">Belum ditugaskan</option>
-              {agents?.map((a: any) => (
-                <option key={a.id} value={a.id}>{a.full_name || a.username}</option>
-              ))}
-            </select>
-          </div>
-        )}
-      </div>
-
-      <div className="messages">
-        {shown.map((msg: any) => {
-          const mine = msg.sender_role === "agent" || msg.sender_role === "admin"
-            ? user.role !== "user"
-            : user.role === "user";
-          return (
-            <div key={msg.id} className={"message " + (mine ? "mine" : "theirs") + " " + msg.message_type}>
-              <div className="message-header">
-                <span className="sender">
-                  {msg.sender_full_name || msg.sender_name ||
-                    (msg.sender_role === "user"
-                      ? user.role === "user"
-                        ? "Anda"
-                        : ticket.requester_full_name || ticket.requester_name || "Karyawan"
-                      : "System")}
-                </span>
-                <span className="time">{dayjs(msg.created_at).format("HH:mm")}</span>
-                {mine && msg.read_at && <span className="read-tick" title="Dibaca">✓✓</span>}
-              </div>
-              {msg.body?.trim() && <div className="message-body">{msg.body}</div>}
-              {msg.attachments?.length > 0 && (
-                <Gallery items={msg.attachments} compact />
-              )}
-              {msg.message_type === "internal" && (
-                <div className="internal-label">Catatan Internal</div>
-              )}
+          <div className="grid gap-4 border-t border-border pt-4">
+            <div className="grid gap-1.5">
+              <Label htmlFor="ticket-status">Ubah Status</Label>
+              <Select value={ticket.status} onValueChange={(v) => updateStatus.mutate(v)}>
+                <SelectTrigger id="ticket-status" className="w-full dark:bg-input/30">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="baru">Diterima</SelectItem>
+                  <SelectItem value="sedang_ditangani">Sedang Dikerjakan</SelectItem>
+                  <SelectItem value="menunggu_pengguna">Menunggu</SelectItem>
+                  <SelectItem value="selesai">Selesai</SelectItem>
+                  <SelectItem value="ditutup">Ditutup</SelectItem>
+                </SelectContent>
+              </Select>
             </div>
-          );
-        })}
-        {all.length > PER && (
-          <div className="chat-pagination">
-            <Pagination
-              page={curMsgPage}
-              totalPages={totalMsgPages}
-              total={all.length}
-              onChange={(p) => { if (p !== curMsgPage) setMsgPage(p); }}
-            />
+            <div className="grid gap-1.5">
+              <Label htmlFor="ticket-assignee">Tugaskan</Label>
+              <Select
+                value={ticket.assignee_id ? String(ticket.assignee_id) : "unassigned"}
+                onValueChange={(v) => assignTicket.mutate(v === "unassigned" ? null : v)}
+              >
+                <SelectTrigger id="ticket-assignee" className="w-full dark:bg-input/30">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="unassigned">Belum ditugaskan</SelectItem>
+                  {agents?.map((a: any) => (
+                    <SelectItem key={a.id} value={String(a.id)}>
+                      {a.full_name || a.username}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
           </div>
         )}
-        {typing && typing.length > 0 && (
-          <div className="typing-indicator">
-            <span className="dots"><i /><i /><i /></span>
-            {typing.map((t) => t.username).join(", ")} sedang mengetik...
           </div>
         )}
-        <div ref={messagesEndRef} />
+      </aside>
+      <div className="flex min-h-0 min-w-0 flex-1 flex-col bg-muted/30">
+      <div className="relative min-h-0 flex-1">
+        <div
+          ref={messagesRef}
+          onScroll={handleMessagesScroll}
+          className="chat-scroll h-full overflow-y-auto"
+        >
+          <div className="w-full px-4 py-6">
+          <ChatThread
+            messages={shown}
+            viewerRole={user.role}
+            requesterName={ticket.requester_full_name || ticket.requester_name}
+            ticketClosed={ticket.status === "ditutup"}
+            typing={typing || []}
+            pagination={
+              all.length > PER ? (
+                <Pagination
+                  page={curMsgPage}
+                  totalPages={totalMsgPages}
+                  total={all.length}
+                  onChange={(p) => { if (p !== curMsgPage) setMsgPage(p); }}
+                />
+              ) : undefined
+            }
+          />
+            <div ref={messagesEndRef} />
+          </div>
+        </div>
+        {showJump && (
+          <Button
+            className="absolute bottom-4 right-4 z-10 gap-1.5 rounded-full shadow-lg"
+            onClick={jumpToLatest}
+          >
+            <ArrowDown size={16} /> Pesan terbaru
+          </Button>
+        )}
       </div>
 
       {ticket.status !== "ditutup" && (
-        <div className="message-input">
-          {sendMessage.isError && <p role="alert">{(sendMessage.error as any)?.response?.data?.error || "Gagal mengirim. Pesan dan gambar tetap tersedia, coba lagi."}</p>}
-          {pendingFiles.length > 0 && (
-            <div className="attach-preview">
-              {previewUrl && <img src={previewUrl} alt="Pratinjau" />}
-              <div className="attach-preview-info">
-                <strong>{pendingFiles.length} gambar siap dikirim</strong>
-                <span className="muted">
-                  {pendingFiles.map((f) => f.name).join(", ")}
-                </span>
-              </div>
-              <button
-                className="icon-btn"
-                onClick={() => setPendingFiles([])}
-                aria-label="Batalkan gambar"
-              >
-                <X size={15} />
-              </button>
-            </div>
-          )}
-          <div className="input-row">
-            <input
-              ref={fileInputRef}
-              type="file"
-              accept="image/*"
-              multiple
-              hidden
-              onChange={(e) => {
-                pickFiles(e.target.files);
-                e.target.value = "";
-              }}
-            />
-            <button
-              type="button"
-              className="icon-btn attach-btn"
-              onClick={() => fileInputRef.current?.click()}
-              title="Lampirkan gambar"
-              aria-label="Lampirkan gambar"
-            >
-              {sendMessage.isPending ? <Loader2 size={17} /> : <Paperclip size={17} />}
-            </button>
-            <textarea
-              placeholder="Ketik pesan... (Enter untuk kirim)"
-              value={message}
-              onChange={(e) => { setMessage(e.target.value); setTyping.mutate(true); }}
-              onBlur={() => setTyping.mutate(false)}
-              enterKeyHint="send"
-              onKeyDown={(e) => {
-                if (e.key === "Enter" && !e.shiftKey) {
-                  e.preventDefault();
-                  const v = message.trim();
-                  if ((v || pendingFiles.length) && !sendMessage.isPending) sendMessage.mutate();
-                }
-              }}
-            />
-            <button
-              type="button"
-              onClick={() => {
-                const v = message.trim();
-                if ((v || pendingFiles.length) && !sendMessage.isPending) sendMessage.mutate();
-              }}
-              disabled={(!message.trim() && !pendingFiles.length) || sendMessage.isPending}
-            >
-              <Send size={20} />
-            </button>
-          </div>
-          {(user.role === "agent" || user.role === "admin") && (
-            <label className="internal-toggle">
-              <input type="checkbox" checked={isInternal} onChange={(e) => setIsInternal(e.target.checked)} />
-              Catatan Internal (tidak terlihat pengguna)
-            </label>
-          )}
-        </div>
+        <ChatComposer
+          message={message}
+          onMessageChange={setMessage}
+          textareaRef={textareaRef}
+          onTypingChange={(t) => setTyping.mutate(t)}
+          pendingFiles={pendingFiles}
+          previewUrl={previewUrl}
+          onPickFiles={pickFiles}
+          onClearFiles={() => setPendingFiles([])}
+          isInternal={isInternal}
+          onToggleInternal={() => setIsInternal((v) => !v)}
+          canMarkInternal={user.role === "agent" || user.role === "admin"}
+          isPending={sendMessage.isPending}
+          sendError={
+            sendMessage.isError
+              ? (sendMessage.error as any)?.response?.data?.error ||
+                "Gagal mengirim. Pesan dan gambar tetap tersedia, coba lagi."
+              : null
+          }
+          onSend={() => {
+            const v = message.trim();
+            if ((v || pendingFiles.length) && !sendMessage.isPending) sendMessage.mutate();
+          }}
+        />
       )}
+      </div>
+    </div>
     </div>
   );
 }
