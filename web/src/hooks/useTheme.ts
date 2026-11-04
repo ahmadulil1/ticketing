@@ -11,6 +11,8 @@ export const themeColors = {
     tooltipBorder: "#e3e7ee",
     tooltipText: "#1e2430",
     cursor: "#f5f7fb",
+    primary: "#4f6df5",
+    success: "#2fbf71",
   },
   dark: {
     grid: "#232c3b",
@@ -19,6 +21,8 @@ export const themeColors = {
     tooltipBorder: "#2d3542",
     tooltipText: "#e6edf3",
     cursor: "#1c2330",
+    primary: "#6b8aff",
+    success: "#3ddc84",
   },
 };
 

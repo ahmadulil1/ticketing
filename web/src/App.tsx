@@ -97,16 +97,14 @@ function TopBar() {
         <span className="spacer" />
         <div className="tb-actions">
           <button
-            onClick={() => setNotifOpen((o) => !o)}
             className="icon-btn notification-trigger"
+            onClick={() => setNotifOpen((o) => !o)}
             aria-label="Notifikasi"
             title="Notifikasi"
           >
             <Bell size={16} />
             {totalUnread > 0 && (
-              <span className="notification-badge">
-                {totalUnread > 99 ? "99+" : totalUnread}
-              </span>
+              <span className="notification-badge">{totalUnread > 99 ? "99+" : totalUnread}</span>
             )}
           </button>
           <TopBarTheme />
@@ -135,9 +133,7 @@ function TopBar() {
                 <span className="brand-dot" />
                 <span>Ticketing</span>
               </span>
-              <button className="icon-btn" onClick={() => setDrawerOpen(false)} aria-label="Tutup menu">
-                <X size={17} />
-              </button>
+              <button className="icon-btn" onClick={() => setDrawerOpen(false)} aria-label="Tutup menu"><X size={17} /></button>
             </div>
             {navItems}
             <span className="spacer" />
