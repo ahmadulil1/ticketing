@@ -1,7 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useMemo, useState } from "react";
 import { Link } from "react-router-dom";
-import { Monitor, Package, Pencil, Plus, Settings } from "lucide-react";
+import { ChevronDown, Monitor, Package, Pencil, Plus, Settings } from "lucide-react";
 import api from "../lib/api";
 import RemoteControl from "../components/RemoteControl";
 import Pagination from "../components/Pagination";
@@ -19,6 +19,28 @@ export default function DeviceList() {
   const [groupName, setGroupName] = useState("");
   const [form, setForm] = useState({ no_inventaris: "", device_id: "", lokasi: "", catatan: "" });
   const [selected, setSelected] = useState<{ inventoryId: string | null; deviceId: string | null } | null>(null);
+
+  // Group yang DIBUKA — diingat di localStorage agar pilihan bertahan.
+  const [openGroups, setOpenGroups] = useState<string[] | null>(() => {
+    try {
+      const raw = localStorage.getItem("device-groups-open");
+      const parsed = raw ? JSON.parse(raw) : null;
+      return Array.isArray(parsed) ? parsed.filter((x) => typeof x === "string") : null;
+    } catch {
+      return null;
+    }
+  });
+  const isOpen = (name: string) => openGroups === null || openGroups.includes(name);
+  const toggleGroup = (name: string) => {
+    setOpenGroups((prev) => {
+      const cur = prev ?? locations;
+      const next = cur.includes(name) ? cur.filter((g) => g !== name) : [...cur, name];
+      try {
+        localStorage.setItem("device-groups-open", JSON.stringify(next));
+      } catch {}
+      return next;
+    });
+  };
 
   const devices = useQuery({ queryKey: ["devices"], queryFn: async () => (await api.get("/devices")).data, refetchInterval: 10000 });
   const assets = useQuery({ queryKey: ["inventories"], queryFn: async () => (await api.get("/inventories")).data });
@@ -53,33 +75,23 @@ export default function DeviceList() {
   const totalPages = Math.max(1, Math.ceil(filtered.length / 12));
   const current = Math.min(page, totalPages);
 
-  // Kelompokkan baris per group (lokasi). Tanpa group -> "Belum dikelompokkan".
-  const grouped = useMemo(() => {
-    const map = new Map<string, any[]>();
-    for (const row of filtered) {
-      const key = row.lokasi || "__none";
-      if (!map.has(key)) map.set(key, []);
-      map.get(key)!.push(row);
-    }
-    return [...map.entries()].sort((a, b) => {
-      if (a[0] === "__none") return 1;
-      if (b[0] === "__none") return -1;
-      return a[0].localeCompare(b[0]);
-    });
-  }, [filtered]);
+  const isFiltered = search.trim() !== "" || osFilter !== "" || location !== "";
+  const pageRows = filtered.slice((current - 1) * 12, current * 12);
 
-  // Paginasi applied pada urutan group (supaya tiap group punya judul).
-  const pagedGroups = useMemo(() => {
-    const out: Array<{ key: string; label: string; rows: any[]; total: number }> = [];
-    let left = (current - 1) * 12;
-    for (const [key, rows] of grouped) {
-      if (left >= rows.length) { left -= rows.length; continue; }
-      const take = rows.slice(left, left + 12);
-      left = 0;
-      out.push({ key, label: key === "__none" ? "Belum dikelompokkan" : key, rows: take, total: rows.length });
+  const groupSections = useMemo(() => {
+    const sections: Array<{ name: string; rows: any[] }> = [];
+    const knownGroups = (groups.data || []).map((g: any) => g.nama);
+    for (const name of knownGroups) {
+      sections.push({ name, rows: rows.filter((r: any) => r.lokasi === name) });
     }
-    return out;
-  }, [grouped, current]);
+    const extra = [...new Set(rows.map((r: any) => r.lokasi).filter(Boolean))].filter((loc) => !knownGroups.includes(loc));
+    for (const name of extra) {
+      sections.push({ name: String(name), rows: rows.filter((r: any) => r.lokasi === name) });
+    }
+    const ungrouped = rows.filter((r: any) => !r.lokasi);
+    if (ungrouped.length > 0) sections.push({ name: "Belum dikelompokkan", rows: ungrouped });
+    return sections;
+  }, [groups.data, rows]);
 
   const renderCard = (row: any) => {
     const label = row.device_name || row.hostname || "Aset tanpa device";
@@ -222,15 +234,44 @@ export default function DeviceList() {
         <p role="alert">Gagal memuat perangkat. Muat ulang halaman.</p>
       ) : (
         <div className="device-layout">
-          <div className="device-cards">
-            {pagedGroups.map(group => (
-              <section className="device-group" key={group.key}>
-                <h2 className="device-group-title"><span className="device-group-name">{group.label}</span><span className="muted">{group.total} perangkat</span></h2>
-                <div className="device-group-cards">{group.rows.map(renderCard)}</div>
-              </section>
-            ))}
-            {!pagedGroups.length && <div className="empty">Tidak ada perangkat yang cocok.</div>}
-          </div>
+          {isFiltered ? (
+            <div className="device-cards">
+              {pageRows.map(renderCard)}
+              {!pageRows.length && <div className="empty">Tidak ada perangkat yang cocok.</div>}
+            </div>
+          ) : (
+            <div className="device-groups">
+              {groupSections.map((sec) => {
+                const open = isOpen(sec.name);
+                return (
+                  <section key={sec.name} className="device-group-section">
+                    <button
+                      className="device-group-head device-group-title"
+                      onClick={() => toggleGroup(sec.name)}
+                      aria-expanded={open}
+                    >
+                      <ChevronDown
+                        size={18}
+                        className={"device-group-chevron" + (open ? "" : " is-collapsed")}
+                      />
+                      <span className="device-group-name">{sec.name}</span>
+                      <span className="device-group-count">{sec.rows.length} perangkat</span>
+                    </button>
+                    {open && (
+                      sec.rows.length > 0 ? (
+                        <div className="device-cards">
+                          {sec.rows.map(renderCard)}
+                        </div>
+                      ) : (
+                        <div className="device-group-empty">Belum ada perangkat di group ini.</div>
+                      )
+                    )}
+                  </section>
+                );
+              })}
+              {!groupSections.length && <div className="empty">Belum ada perangkat.</div>}
+            </div>
+          )}
 
           {selected && (
             <AssetPanel inventoryId={selected.inventoryId} deviceId={selected.deviceId} onClose={() => setSelected(null)} onSaved={refresh} />
@@ -238,7 +279,9 @@ export default function DeviceList() {
         </div>
       )}
 
-      <Pagination page={current} totalPages={totalPages} total={filtered.length} onChange={setPage} label="perangkat" />
+      {isFiltered && (
+        <Pagination page={current} totalPages={totalPages} total={filtered.length} onChange={setPage} label="perangkat" />
+      )}
 
       {groupsOpen && (
         <div className="device-group-overlay" onClick={() => setGroupsOpen(false)}>
