@@ -6,6 +6,7 @@ import Pagination from "../components/Pagination";
 import Gallery, { GalleryLabel } from "../components/Gallery";
 import api from "../lib/api";
 import RemoteControl from "../components/RemoteControl";
+import TemplatePicker from "../components/TemplatePicker";
 import { useTheme } from "../hooks/useTheme";
 import dayjs from "dayjs";
 import { ArrowLeft, Send, Sun, Moon, Paperclip, X, Loader2, History } from "lucide-react";
@@ -412,6 +413,14 @@ export default function TicketDetail({ ticketId, embedded = false, readEnabled =
             >
               {sendMessage.isPending ? <Loader2 size={17} /> : <Paperclip size={17} />}
             </button>
+            {isStaff && (
+              <TemplatePicker
+                onSelect={(body) => {
+                  setMessage((prev) => (prev.trim() ? prev + "\n" + body : body));
+                  setTyping.mutate(true);
+                }}
+              />
+            )}
             <textarea
               placeholder="Ketik pesan... (Enter untuk kirim)"
               value={message}

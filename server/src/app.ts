@@ -18,6 +18,7 @@ import inventoryRoutes from "./routes/inventory.js";
 import groupRoutes from "./routes/groups.js";
 import remoteRoutes from "./routes/remote.js";
 import attachmentRoutes from "./routes/attachments.js";
+import templateRoutes from "./routes/templates.js";
 
 export async function buildApp() {
   const fastify = Fastify({
@@ -81,6 +82,7 @@ export async function buildApp() {
   await fastify.register(groupRoutes, { prefix: "/api/device-groups" });
   await fastify.register(remoteRoutes, { prefix: "/api/remote" });
   await fastify.register(attachmentRoutes, { prefix: "/api/attachments" });
+  await fastify.register(templateRoutes, { prefix: "/api/templates" });
 
   // WebSocket for real-time chat + remote desktop signaling
   fastify.register(async function (fastify) {
@@ -279,12 +281,17 @@ export async function buildApp() {
             if (targets) {
               for (const target of targets) {
                 if (target !== socket && target.readyState === 1) {
-                  target.send(JSON.stringify(data));
+                  // ponytail: drop stale video when network stalls; reliable input stays ordered.
+                  if (data.type === "remote_frame" && target.bufferedAmount > 1024 * 1024) continue;
+                  target.send(message.toString());
                   sent++;
                 }
               }
             }
-            console.log(`[ws-remote] relay ${data.type} -> ${sent} clients`);
+            if (data.type === "remote_input" && data.input?.type !== "MouseMove") {
+              // Diagnostic metadata only: never log typed keys or input payload.
+              fastify.log.info({ deviceId: socket.deviceId, sessionId: data.session_id, recipients: sent }, "Remote input relayed");
+            }
             return;
           }
         } catch (e) {

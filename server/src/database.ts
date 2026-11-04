@@ -192,8 +192,18 @@ export async function initDb() {
       ALTER TABLE users ADD COLUMN IF NOT EXISTS sigap_user_id UUID;
       CREATE UNIQUE INDEX IF NOT EXISTS idx_users_sigap_user_id
         ON users (sigap_user_id) WHERE sigap_user_id IS NOT NULL;
+
+      CREATE TABLE IF NOT EXISTS ticket_templates (
+        id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+        name VARCHAR(100) NOT NULL,
+        body TEXT NOT NULL,
+        created_by UUID REFERENCES users(id),
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      );
     `);
     await seedSigapAdmins(client);
+    await seedTicketTemplates(client);
     console.log("Database tables created");
   } finally {
     client.release();
@@ -226,4 +236,42 @@ async function seedSigapAdmins(client: any) {
     );
   }
   console.log(`Seeded ${emails.length} admin SIGAP (${emails.join(", ")})`);
+}
+
+/**
+ * Seed template balasan cepat (canned responses) awal.
+ */
+async function seedTicketTemplates(client: any) {
+  const count = await client.query("SELECT COUNT(*) FROM ticket_templates");
+  if (parseInt(count.rows[0].count, 10) > 0) return;
+
+  const defaults = [
+    {
+      name: "Restart Printer / Spooler",
+      body: "Halo, mohon coba matikan printer selama 10 detik lalu nyalakan kembali. Jika masih belum bisa mencetak, silakan restart service print spooler melalui task manager atau hubungi tim IT untuk remote bantuan.",
+    },
+    {
+      name: "Cek Koneksi / Kabel Jaringan",
+      body: "Halo, mohon pastikan kabel LAN terpasang erat di belakang PC dan lampu indikator port menyala. Jika memakai WiFi, pastikan terhubung ke jaringan kantor yang benar.",
+    },
+    {
+      name: "Konfirmasi Masalah Selesai",
+      body: "Kendala ini telah ditangani. Mohon dicoba kembali dan pastikan sudah berjalan normal. Jika masih ada keluhan, silakan balas pesan ini. Terima kasih.",
+    },
+    {
+      name: "Permintaan Bantuan Remote",
+      body: "Halo, tim IT akan melakukan remote ke PC Anda untuk pengecekan langsung. Mohon izinkan sesi remote yang muncul di layar PC Anda.",
+    },
+    {
+      name: "Reset Password / Akun",
+      body: "Permintaan reset password telah kami proses. Silakan login menggunakan password sementara yang telah dikirimkan, lalu segera ganti password demi keamanan akun.",
+    },
+  ];
+
+  for (const item of defaults) {
+    await client.query(
+      `INSERT INTO ticket_templates (name, body) VALUES ($1, $2)`,
+      [item.name, item.body]
+    );
+  }
 }

@@ -702,6 +702,31 @@ body {
 .internal-toggle { display: flex; align-items: center; gap: 0.5rem; font-size: 0.875rem; color: var(--text-2); margin-top: 0.5rem; cursor: pointer; }
 .internal-toggle input { accent-color: var(--primary); width: 15px; height: 15px; }
 
+/* Template balasan cepat */
+.template-picker { position: relative; }
+.template-picker summary { list-style: none; user-select: none; }
+.template-picker summary::-webkit-details-marker { display: none; }
+.template-menu {
+  position: absolute; bottom: calc(100% + 8px); left: 0; width: 300px;
+  max-height: 260px; overflow-y: auto; background: var(--surface);
+  border: 1px solid var(--border); border-radius: 10px; box-shadow: var(--shadow-lg);
+  z-index: 70; padding: 6px; display: flex; flex-direction: column; gap: 4px;
+}
+.template-menu-head {
+  padding: 4px 8px; font-size: 0.75rem; font-weight: 700; color: var(--text-2);
+  border-bottom: 1px solid var(--border-soft); margin-bottom: 2px;
+}
+.template-menu-list { display: flex; flex-direction: column; gap: 3px; }
+.template-menu-item {
+  text-align: left; background: none; border: none; padding: 6px 8px;
+  border-radius: 6px; cursor: pointer; display: flex; flex-direction: column; gap: 2px;
+  color: var(--text); font-family: inherit; width: 100%;
+}
+.template-menu-item strong { font-size: 0.8125rem; color: var(--text); }
+.template-menu-item span { font-size: 0.75rem; color: var(--text-2); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.template-menu-item:hover { background: var(--surface-2); color: var(--primary); }
+.template-menu-item:hover strong { color: var(--primary); }
+
 /* ===== Device detail ===== */
 .device-info { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 0.75rem; margin: 1rem 0; }
 .info-card { background: var(--surface); border-radius: 8px; padding: 0.875rem 1rem; box-shadow: var(--shadow-sm); display: flex; flex-direction: column; gap: 0.25rem; border: 1px solid var(--border-soft); }

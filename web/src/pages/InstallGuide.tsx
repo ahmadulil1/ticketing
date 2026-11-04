@@ -216,6 +216,16 @@ export default function InstallGuide() {
         </span>
       </div>
 
+      <section className="panel" aria-labelledby="epson-reset-title">
+        <div className="panel-head"><h2 id="epson-reset-title">Resetter Printer Epson</h2></div>
+        <p>Windows 10/11 64-bit · Portable, tanpa instalasi Python. Reset hanya diizinkan untuk profil L5290; build ini belum diuji langsung pada printer.</p>
+        <p><strong>Peringatan:</strong> Reset counter tidak mengosongkan bantalan tinta limbah. Periksa atau ganti bantalan sebelum reset untuk mencegah kebocoran tinta dan kerusakan printer.</p>
+        <div className="install-dl">
+          <a className="btn btn-primary" href={`${BASE}/downloads/Epson-WIC-Reset.exe`} download><Download size={18} /> Download Resetter Epson (.exe)</a>
+          <a className="btn btn-outline" href={`${BASE}/downloads/Epson-WIC-Reset-source.zip`} download>Source code + lisensi (AGPL)</a>
+        </div>
+      </section>
+
       <div className="panel">
         <div className="panel-head">
           <h2>Langkah install {os === "macos" ? "macOS" : "Windows"}</h2>
