@@ -1,5 +1,6 @@
 import { config } from "./config/index.js";
 import pg from "pg";
+import { initMaintenanceDb } from "./database-maintenance.js";
 const { Pool } = pg;
 
 export const db = new Pool({
@@ -144,4 +145,5 @@ export async function initDb() {
   } finally {
     client.release();
   }
+  await initMaintenanceDb();
 }

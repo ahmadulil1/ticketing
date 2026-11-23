@@ -244,7 +244,7 @@ const messageRoutes: FastifyPluginAsync = async (fastify) => {
     const message = result.rows[0];
     
     // Broadcast via Redis pub/sub
-    const redis = fastify.redis;
+    const redis = (fastify as any).redis;
     if (redis) {
       await redis.publish(
         `ticket:${ticketId}`,

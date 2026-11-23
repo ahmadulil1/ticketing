@@ -16,6 +16,7 @@ import userRoutes from "./routes/users.js";
 import deviceRoutes from "./routes/devices.js";
 import inventoryRoutes from "./routes/inventory.js";
 import groupRoutes from "./routes/groups.js";
+import maintenanceRoutes from "./routes/maintenance.js";
 
 export async function buildApp() {
   const fastify = Fastify({
@@ -77,6 +78,7 @@ export async function buildApp() {
   await fastify.register(deviceRoutes, { prefix: "/api/devices" });
   await fastify.register(inventoryRoutes, { prefix: "/api/inventories" });
   await fastify.register(groupRoutes, { prefix: "/api/device-groups" });
+  await fastify.register(maintenanceRoutes, { prefix: "/api" });
 
   // WebSocket for real-time chat
   fastify.register(async function (fastify) {
@@ -84,7 +86,7 @@ export async function buildApp() {
     // fastify.websocketServer di plugin ini tak reliable, jadi simpan manual.
     const subs = new Map<string, Set<any>>();
 
-    subClient.on("pmessage", (pattern, channel, payload) => {
+    subClient.on("pmessage", (pattern: any, channel: string, payload: string) => {
       try {
         const m = channel.match(/^ticket:(.+?)(?::user:(.+))?$/);
         if (!m) return;
@@ -201,7 +203,7 @@ export async function buildApp() {
 export async function start() {
   const app = await buildApp();
   try {
-    await app.listen({ port: config.port, host: config.host });
+    await app.listen({ port: Number(config.port), host: config.host });
     console.log(`Server running on http://${config.host}:${config.port}`);
   } catch (err) {
     app.log.error(err);
