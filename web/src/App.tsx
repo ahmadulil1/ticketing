@@ -20,6 +20,7 @@ import { DashboardPage as MaintenanceDashboardPage } from "./pages/maintenance/d
 import { WorkPage } from "./pages/maintenance/work-page";
 import { VisitMaintenanceDetailPage } from "./pages/maintenance/visit-maintenance-detail-page";
 import "./index.css";
+import "./ticketing.css";
 
 const queryClient = new QueryClient();
 
@@ -35,7 +36,11 @@ function Shell({ children }: { children: React.ReactNode }) {
 }
 
 function PublicLayout({ children }: { children: React.ReactNode }) {
-  return <div className="min-h-screen"><main className="mx-auto max-w-[1400px] px-4 py-6 sm:px-6 lg:px-8">{children}</main></div>;
+  return <div className="maintenance-public min-h-screen"><main className="mx-auto max-w-[1400px] px-4 py-6 sm:px-6 lg:px-8">{children}</main></div>;
+}
+
+function MaintenanceLayout({ children }: { children: React.ReactNode }) {
+  return <div className="maintenance-ui min-h-screen">{children}</div>;
 }
 
 export default function App() {
@@ -61,11 +66,11 @@ export default function App() {
             <Route path="/stats" element={<PrivateRoute><Shell><Stats /></Shell></PrivateRoute>} />
 
             {/* Maintenance */}
-            <Route path="/maintenance" element={<PrivateRoute><Shell><MaintenancePage /></Shell></PrivateRoute>} />
-            <Route path="/maintenance/dashboard" element={<PrivateRoute><Shell><MaintenanceDashboardPage /></Shell></PrivateRoute>} />
-            <Route path="/assets" element={<PrivateRoute><Shell><AssetsPage /></Shell></PrivateRoute>} />
-            <Route path="/assets/:assetId" element={<PrivateRoute><Shell><AssetDetailPage /></Shell></PrivateRoute>} />
-            <Route path="/work" element={<PrivateRoute><Shell><WorkPage /></Shell></PrivateRoute>} />
+            <Route path="/maintenance" element={<PrivateRoute><MaintenanceLayout><Shell><MaintenancePage /></Shell></MaintenanceLayout></PrivateRoute>} />
+            <Route path="/maintenance/dashboard" element={<PrivateRoute><MaintenanceLayout><Shell><MaintenanceDashboardPage /></Shell></MaintenanceLayout></PrivateRoute>} />
+            <Route path="/assets" element={<PrivateRoute><MaintenanceLayout><Shell><AssetsPage /></Shell></MaintenanceLayout></PrivateRoute>} />
+            <Route path="/assets/:assetId" element={<PrivateRoute><MaintenanceLayout><Shell><AssetDetailPage /></Shell></MaintenanceLayout></PrivateRoute>} />
+            <Route path="/work" element={<PrivateRoute><MaintenanceLayout><Shell><WorkPage /></Shell></MaintenanceLayout></PrivateRoute>} />
 
             <Route path="*" element={<Navigate to="/" replace />} />
           </Routes>

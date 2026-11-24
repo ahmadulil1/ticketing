@@ -48,11 +48,17 @@
     --ring: 192 88% 56%;
   }
 
-  * {
+  .maintenance-ui *,
+  .maintenance-public * {
     @apply border-border;
   }
 
   body {
+    min-height: 100vh;
+  }
+
+  .maintenance-ui,
+  .maintenance-public {
     @apply min-h-screen bg-background font-sans text-foreground antialiased;
     background-image:
       radial-gradient(circle at top left, rgba(13, 148, 136, 0.12), transparent 36%),
@@ -61,7 +67,8 @@
     background-attachment: fixed;
   }
 
-  .dark body {
+  .dark .maintenance-ui,
+  .dark .maintenance-public {
     background-image:
       radial-gradient(circle at top left, rgba(13, 148, 136, 0.18), transparent 34%),
       radial-gradient(circle at right center, rgba(249, 115, 22, 0.12), transparent 24%),
